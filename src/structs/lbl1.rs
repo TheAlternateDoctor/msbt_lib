@@ -2,7 +2,7 @@ use std::io::{Read, Seek, SeekFrom};
 use bytestream::StreamReader;
 use crate::error::{Error, Result};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LBL1{
     magic: Vec::<u8>,
     section_size: u32,
@@ -17,7 +17,7 @@ pub struct LabelDef{
     offset: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Label{
     size: u8,
     label: String,

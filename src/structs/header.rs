@@ -2,11 +2,10 @@ use std::io::Read;
 use bytestream::StreamReader;
 use crate::error::{Error, Result};
 
-// #[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Header{
-    magic: Vec::<u8>,
-    // endianness: bool,
-    pub endianness: bytestream::ByteOrder,
+    magic: Vec<u8>,
+    pub endianness: bool,
     unk1: u16,
     unk2: u16, //Version?
     pub section_amount: u16,
@@ -23,14 +22,17 @@ impl Header{
         }
         let endianness_raw = u16::read_from(buffer, bytestream::ByteOrder::BigEndian)?;
         let endianness;
+        let endianness_bool;
         if endianness_raw == 0xFEFF{
             endianness = bytestream::ByteOrder::BigEndian;
+            endianness_bool = true;
         } else {
             endianness = bytestream::ByteOrder::LittleEndian;
+            endianness_bool = false;
         }
         Ok(Header{
             magic: magic,
-            endianness: endianness,
+            endianness: endianness_bool,
             unk1: u16::read_from(buffer, endianness)?,
             unk2: u16::read_from(buffer, endianness)?,
             section_amount: u16::read_from(buffer, endianness)?,
