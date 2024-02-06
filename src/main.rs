@@ -5,11 +5,12 @@ use msbt::msbt;
 fn main() -> ::msbt::Result<()> {
     let mut file = File::open("agb.msbt")?;
     let msbt = msbt::from_binary(&mut file)?;
-    let strings = msbt::get_strings(msbt)?;
-    for msbt_string in strings{
-            println!("({}){}: ", msbt_string.index, msbt_string.label);
-            println!("{}",read_string(&msbt_string.string, msbt_string.string.len()/2).unwrap());
-    }
+    let mut strings = msbt::get_strings(msbt)?;
+    let mut vec_index = strings.iter().position(|s| s.label == "agbHoppingL_tutorial_b_01").unwrap();
+    println!("({}):{}", strings[vec_index].index, strings[vec_index].label);
+    msbt::delete_string_by_label(&mut strings, "agbHair_tutorial_e_02".to_owned());
+    vec_index = strings.iter().position(|s| s.label == "agbHoppingL_tutorial_b_01").unwrap();
+    println!("({}):{}", strings[vec_index].index, strings[vec_index].label);
     Ok(())
 }
 pub fn read_string(slice: &[u8], size: usize) -> Option<String> {
