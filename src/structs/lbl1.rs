@@ -2,14 +2,7 @@ use std::io::{Read, Seek, SeekFrom};
 use bytestream::StreamReader;
 use crate::error::{Error, Result};
 
-#[derive(Debug, Clone)]
-pub struct LBL1{
-    magic: Vec::<u8>,
-    section_size: u32,
-    block_amount: u32,
-    pub offsets: Vec<LabelDef>,
-    pub labels: Vec<Label>
-}
+use super::LBL1;
 
 #[derive(Debug, Clone)]
 pub struct LabelDef{
@@ -26,9 +19,9 @@ pub struct Label{
 
 impl LBL1 {
     pub fn read_from<R: Read + Seek>(buffer: &mut R, order: bytestream::ByteOrder) -> Result<LBL1> {
+        let block_start = buffer.stream_position()?;
         let mut magic = vec![0u8;4];
         buffer.read_exact(&mut magic)?;
-        print!("{}", String::from_utf8(magic.clone())?);
         if magic != b"LBL1" {
             return Err(Error::Malformed)
         }
@@ -39,6 +32,7 @@ impl LBL1 {
         let label_defs = Self::get_offsets(buffer, order, block_amount)?;
         buffer.seek(SeekFrom::Start(start_block))?;
         let labels = Self::get_labels(buffer, order, label_defs.clone())?;
+        buffer.seek(SeekFrom::Start(block_start+0x10+section_size as u64+(0x10-(section_size%0x10)) as u64))?;
         Ok(LBL1{
             magic: magic,
             section_size: section_size,
@@ -62,22 +56,22 @@ impl LBL1 {
     }
 
     fn get_labels<R:Read+ Seek>(buffer: &mut R, order: bytestream::ByteOrder, label_defs: Vec<LabelDef>) -> Result<Vec<Label>> {
-        let mut offsets = Vec::<Label>::new();
+        let mut labels = Vec::<Label>::new();
         let start_pos = buffer.stream_position()?;
         for label_def in label_defs {
             buffer.seek(SeekFrom::Start(start_pos+label_def.offset as u64))?;
-            for _i in 1..label_def.amount{
+            for _i in 0..label_def.amount{
                 let size = u8::read_from(buffer, order)?;
                 let mut string = vec![0u8;size.into()];
                 buffer.read_exact(&mut string)?;
                 let index = u32::read_from(buffer, order)?;
-                offsets.push(Label {
+                labels.push(Label {
                     size: size,
                     label: String::from_utf8(string)?,
                     string_index: index
-                })
+                });
             }
         }
-        Ok(offsets)
+        Ok(labels)
     }
 }
