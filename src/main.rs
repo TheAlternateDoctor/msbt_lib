@@ -1,15 +1,14 @@
 use std::fs::File;
 
-use msbt_lib::msbt;
+use msbt::msbt;
 
-fn main() -> msbt_lib::error::Result<()> {
+fn main() -> ::msbt::Result<()> {
     let mut file = File::open("agb.msbt")?;
-    let strings = msbt::get_strings(&mut file)?;
+    let msbt = msbt::from_binary(&mut file)?;
+    let strings = msbt::get_strings(msbt)?;
     for msbt_string in strings{
-        if msbt_string.index == 85{
             println!("({}){}: ", msbt_string.index, msbt_string.label);
             println!("{}",read_string(&msbt_string.string, msbt_string.string.len()/2).unwrap());
-        }
     }
     Ok(())
 }

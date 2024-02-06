@@ -2,7 +2,14 @@ use std::io::{Read, Seek, SeekFrom};
 use bytestream::StreamReader;
 use crate::error::{Error, Result};
 
-use super::LBL1;
+#[derive(Debug, Clone)]
+pub struct LBL1{
+    magic: Vec::<u8>,
+    section_size: u32,
+    block_amount: u32,
+    pub offsets: Vec<LabelDef>,
+    pub labels: Vec<Label>
+}
 
 #[derive(Debug, Clone)]
 pub struct LabelDef{

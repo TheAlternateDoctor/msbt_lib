@@ -3,7 +3,12 @@ use std::io::{Read, Seek, SeekFrom};
 use crate::error::{Error, Result};
 use bytestream::StreamReader;
 
-use super::ATR1;
+#[derive(Debug, Clone)]
+pub struct ATR1{ // Not enough data, since only Rhythm Heaven Megamix has been used for research.
+    magic: Vec<u8>,
+    section_size: u32,
+    string_amount:u64
+}
 
 impl ATR1{
     pub fn read_from<R: Read + Seek>(buffer: &mut R, order: bytestream::ByteOrder) -> Result<ATR1> {

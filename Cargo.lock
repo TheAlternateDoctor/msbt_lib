@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "msbt_lib"
+name = "msbt"
 version = "0.1.0"
 dependencies = [
  "bytestream",

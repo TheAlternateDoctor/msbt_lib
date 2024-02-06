@@ -2,7 +2,16 @@ use std::io::{Read, Seek, SeekFrom};
 use bytestream::StreamReader;
 use crate::error::{Error, Result};
 
-use super::Header;
+#[derive(Debug, Clone)]
+pub struct Header{
+    magic: Vec<u8>,
+    pub endianness: bool,
+    unk1: u16,
+    unk2: u16, //Version?
+    pub section_amount: u16,
+    unk3: u16,
+    filesize: u32,
+}
 
 impl Header{
     pub fn read_from<R: Read+Seek>(buffer: &mut R) -> Result<Header> {

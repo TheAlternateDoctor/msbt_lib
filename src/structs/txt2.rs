@@ -2,7 +2,14 @@ use std::io::{Read, Seek, SeekFrom};
 use bytestream::StreamReader;
 use crate::error::{Error, Result};
 
-use super::TXT2;
+#[derive(Debug, Clone)]
+pub struct TXT2{
+    magic: Vec::<u8>,
+    section_size: u32,
+    string_amount: u32,
+    pub offsets: Vec<u32>,
+    pub strings: Vec<Vec<u8>>
+}
 
 impl TXT2{
     pub fn read_from<R: Read + Seek>(buffer: &mut R, order: bytestream::ByteOrder) -> Result<TXT2> {
