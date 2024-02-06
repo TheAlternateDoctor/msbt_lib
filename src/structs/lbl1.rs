@@ -12,9 +12,9 @@ pub struct LabelDef{
 
 #[derive(Debug, Clone)]
 pub struct Label{
-    size: u8,
-    label: String,
-    string_index: u32
+    pub size: u8,
+    pub label: String,
+    pub string_index: u32
 }
 
 impl LBL1 {

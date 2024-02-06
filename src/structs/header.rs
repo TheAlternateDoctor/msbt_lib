@@ -1,11 +1,11 @@
-use std::io::Read;
+use std::io::{Read, Seek, SeekFrom};
 use bytestream::StreamReader;
 use crate::error::{Error, Result};
 
 use super::Header;
 
 impl Header{
-    pub fn read_from<R: Read>(buffer: &mut R) -> Result<Header> {
+    pub fn read_from<R: Read+Seek>(buffer: &mut R) -> Result<Header> {
         let mut magic = vec![0u8;8];
         buffer.read_exact(&mut magic)?;
         if magic != b"MsgStdBn" {
@@ -21,6 +21,7 @@ impl Header{
             endianness = bytestream::ByteOrder::LittleEndian;
             endianness_bool = false;
         }
+        buffer.seek(SeekFrom::Current(10))?;
         Ok(Header{
             magic: magic,
             endianness: endianness_bool,

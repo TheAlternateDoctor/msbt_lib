@@ -35,7 +35,7 @@ impl TXT2{
         for offset in offsets{
             if offset != start_offset {
                 // println!("{:#x}:{:#x}", start_pos,offset);
-                buffer.seek(SeekFrom::Start(start_pos+offset as u64))?;
+                buffer.seek(SeekFrom::Start(start_pos+start_offset as u64))?;
                 let mut string = Vec::<u8>::new();
                 for _i in 0..(offset-start_offset){
                     string.push(u8::read_from(buffer, order)?);
