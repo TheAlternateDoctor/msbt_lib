@@ -106,6 +106,10 @@ impl TXT2{
                 }
             }
         }
+        let padding = 16 - result.len() %16;
+        for _i in 0..padding{
+            result.push(0xD0);
+        }
 
         Ok(result)
     }
