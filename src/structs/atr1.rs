@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, SeekFrom};
 
-use crate::error::{Error, Result};
-use bytestream::StreamReader;
+use crate::{error::{Error, Result}, msbt::MSBTString};
+use bytestream::{ByteOrder, StreamReader};
 
 #[derive(Debug, Clone)]
 pub struct ATR1{ // Not enough data, since only Rhythm Heaven Megamix has been used for research.
@@ -27,5 +27,30 @@ impl ATR1{
             section_size: section_size,
             string_amount: string_amount
         })
+    }
+
+    pub fn write_binary(msbt_strings: Vec<MSBTString>, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
+        let mut result = Vec::<u8>::new();
+        let section_size = 8 as u32;
+        //binary tiem
+        result.append(&mut b"ATR1".to_vec());
+        match order {
+            ByteOrder::BigEndian => {
+                result.append(&mut section_size.to_be_bytes().to_vec());
+                result.append(&mut vec![0,0,0,0,0,0,0,0]);
+                result.append(&mut (msbt_strings.len()).to_be_bytes().to_vec());
+            }
+            ByteOrder::LittleEndian => {
+                result.append(&mut section_size.to_le_bytes().to_vec());
+                result.append(&mut vec![0,0,0,0,0,0,0,0]);
+                result.append(&mut (msbt_strings.len()).to_le_bytes().to_vec());
+            }
+        }
+        let padding = 16 - result.len() %16;
+        for _i in 0..padding{
+            result.push(0xD0);
+        }
+
+        Ok(result)
     }
 }
