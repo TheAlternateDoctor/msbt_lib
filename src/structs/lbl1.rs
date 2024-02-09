@@ -86,7 +86,7 @@ impl LBL1 {
     pub fn write_binary(msbt_strings: Vec<MSBTString>, order: bytestream::ByteOrder) -> Result<Vec<u8>> {
         let mut result = Vec::<u8>::new();
         let mut labels = Vec::<Label>::new();
-        let mut label_defs = Vec::<LabelDef>::new();
+        let mut label_defs = vec![LabelDef{ amount: 0, offset: 0 };101];
         let mut labels_raw = Vec::<u8>::new();
         let base_offset = 0x32C; //Always the same for MSBT
         let mut label_defs_raw = Vec::<u8>::new();
@@ -108,7 +108,7 @@ impl LBL1 {
         let mut current_hash = 0;
         for label in labels{
             if label.hash != current_hash{
-                label_defs.push(label_def);
+                label_defs.insert(current_hash as usize, label_def);
                 label_def = LabelDef{amount: 0, offset: base_offset+labels_raw.len() as u32};
                 current_hash = label.hash;
             }
@@ -117,20 +117,40 @@ impl LBL1 {
             labels_raw.append(&mut label.label.as_bytes().to_vec());
             match order {
                 ByteOrder::BigEndian => {labels_raw.append(&mut label.string_index.to_be_bytes().to_vec());}
-                ByteOrder::LittleEndian => {labels_raw.append(&mut label.string_index.to_be_bytes().to_vec());}
+                ByteOrder::LittleEndian => {labels_raw.append(&mut label.string_index.to_le_bytes().to_vec());}
             }
         }
+        label_defs.insert(current_hash as usize, label_def);
         //Finally, we make the raw offset array
-        for label_def in label_defs{
-            match order {
-                ByteOrder::BigEndian => {
-                    label_defs_raw.append(&mut label_def.amount.to_be_bytes().to_vec());
-                    label_defs_raw.append(&mut label_def.offset.to_be_bytes().to_vec());
+        let mut empties = 0u8;
+        for i in 0..101{
+            let label_def = label_defs.get(i).unwrap();
+            if label_def.offset != 0 {
+                for _i in 0..empties{
+                    match order {
+                        ByteOrder::BigEndian => {
+                            label_defs_raw.append(&mut 0u32.to_be_bytes().to_vec());
+                            label_defs_raw.append(&mut label_def.offset.to_be_bytes().to_vec());
+                        }
+                        ByteOrder::LittleEndian => {
+                            label_defs_raw.append(&mut 0u32.to_le_bytes().to_vec());
+                            label_defs_raw.append(&mut label_def.offset.to_le_bytes().to_vec());
+                        }
+                    }
                 }
-                ByteOrder::LittleEndian => {
-                    label_defs_raw.append(&mut label_def.amount.to_le_bytes().to_vec());
-                    label_defs_raw.append(&mut label_def.offset.to_le_bytes().to_vec());
+                match order {
+                    ByteOrder::BigEndian => {
+                        label_defs_raw.append(&mut label_def.amount.to_be_bytes().to_vec());
+                        label_defs_raw.append(&mut label_def.offset.to_be_bytes().to_vec());
+                    }
+                    ByteOrder::LittleEndian => {
+                        label_defs_raw.append(&mut label_def.amount.to_le_bytes().to_vec());
+                        label_defs_raw.append(&mut label_def.offset.to_le_bytes().to_vec());
+                    }
                 }
+                empties = 0;
+            } else {
+                empties += 1;
             }
         }
 
@@ -161,11 +181,11 @@ impl LBL1 {
         Ok(result)
     }
 
-    fn calculate_hash(label: String) -> u32{
-        let mut hash:u32 = 0;
+    fn calculate_hash(label: String) -> u64{
+        let mut hash:u64 = 0;
         for char in label.as_bytes(){
-            hash = hash.wrapping_mul(0x492) + (*char) as u32 ;
+            hash = hash.wrapping_mul(0x492) + (*char) as u64 ;
         }
-        return hash & 0xFFFFFFFF;
+        return (hash & 0xFFFFFFFF) % 101;
     }
 }
