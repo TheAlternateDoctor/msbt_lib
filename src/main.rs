@@ -7,24 +7,9 @@ fn main() -> ::msbt::Result<()> {
     let mut file = File::open("agb.msbt")?;
     let msbt = msbt::from_binary(&mut file)?;
     let strings = msbt::get_strings(msbt.clone())?;
-    let lbl1 = LBL1::write_binary(strings.clone(), msbt.endianness)?;
-    let atr1 = ATR1::write_binary(strings.clone(), msbt.endianness)?;
-    let txt2 = TXT2::write_binary(strings.clone(), msbt.endianness)?;
-    let header = Header::write_binary(3, (lbl1.len()+atr1.len()+txt2.len()) as u32, msbt.endianness)?;
-    // let mut i = 0;
-    // for byte in &txt2{
-    //         print!("{:#x} ", byte);
-    //         i+=1;
-    //         if i > 15{
-    //             i = 0;
-    //             print!("\n");
-    //     }
-    // }
+    let new_msbt = msbt::to_binary(strings, msbt.endianness)?;
     let mut result = File::create("foo.msbt")?;
-    result.write(&header)?;
-    result.write(&lbl1)?;
-    result.write(&atr1)?;
-    result.write(&txt2)?;
+    result.write(&new_msbt)?;
     Ok(())
 }
 pub fn read_string(slice: &[u8], size: usize) -> Option<String> {
