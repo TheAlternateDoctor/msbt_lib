@@ -6,12 +6,13 @@ use crate::structs::{Header, ATR1, LBL1, TXT2};
 use crate::error::{Error, Result};
 
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MSBT{
     header: Header,
     lbl1: LBL1,
     atr1: ATR1,
-    txt2: TXT2
+    txt2: TXT2,
+    pub endianness: bytestream::ByteOrder
 }
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -31,7 +32,8 @@ pub fn from_binary<R: Read+Seek>(buffer: &mut R) -> Result<MSBT> {
         header: header,
         lbl1: lbl1,
         atr1: atr1,
-        txt2: txt2
+        txt2: txt2,
+        endianness: byte_order
         }
     )
 }

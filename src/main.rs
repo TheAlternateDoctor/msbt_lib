@@ -1,16 +1,24 @@
-use std::fs::File;
+use std::{fs::File, io::Write};
 
 use msbt::msbt;
+use ::msbt::structs::TXT2;
 
 fn main() -> ::msbt::Result<()> {
     let mut file = File::open("agb.msbt")?;
     let msbt = msbt::from_binary(&mut file)?;
-    let mut strings = msbt::get_strings(msbt)?;
-    let mut vec_index = strings.iter().position(|s| s.label == "agbHoppingL_tutorial_b_01").unwrap();
-    println!("({}):{}", strings[vec_index].index, strings[vec_index].label);
-    msbt::delete_string_by_label(&mut strings, "agbHair_tutorial_e_02".to_owned());
-    vec_index = strings.iter().position(|s| s.label == "agbHoppingL_tutorial_b_01").unwrap();
-    println!("({}):{}", strings[vec_index].index, strings[vec_index].label);
+    let strings = msbt::get_strings(msbt.clone())?;
+    let txt2 = TXT2::write_binary(strings, msbt.endianness)?;
+    // let mut i = 0;
+    // for byte in &txt2{
+    //         print!("{:#x} ", byte);
+    //         i+=1;
+    //         if i > 15{
+    //             i = 0;
+    //             print!("\n");
+    //     }
+    // }
+    let mut result = File::create("foo.txt")?;
+    result.write(&txt2)?;
     Ok(())
 }
 pub fn read_string(slice: &[u8], size: usize) -> Option<String> {
