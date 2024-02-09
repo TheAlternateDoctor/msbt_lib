@@ -86,6 +86,13 @@ impl TXT2{
             ByteOrder::BigEndian => {
                 result.append(&mut section_size.to_be_bytes().to_vec());
                 result.append(&mut vec![0,0,0,0,0,0,0,0]);
+                result.append(&mut (msbt_strings.len() as u32).to_be_bytes().to_vec());
+                for offset in offsets{
+                    result.append(&mut offset.to_be_bytes().to_vec());
+                }
+                for string in strings{
+                    result.append(&mut string.clone());
+                }
             }
             ByteOrder::LittleEndian => {
                 result.append(&mut section_size.to_le_bytes().to_vec());
@@ -97,7 +104,6 @@ impl TXT2{
                 for string in strings{
                     result.append(&mut string.clone());
                 }
-
             }
         }
 
