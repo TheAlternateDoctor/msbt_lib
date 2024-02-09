@@ -1,13 +1,16 @@
 use std::{fs::File, io::Write};
 
 use msbt::msbt;
-use ::msbt::structs::TXT2;
+use ::msbt::structs::{Header, ATR1, LBL1, TXT2};
 
 fn main() -> ::msbt::Result<()> {
     let mut file = File::open("agb.msbt")?;
     let msbt = msbt::from_binary(&mut file)?;
     let strings = msbt::get_strings(msbt.clone())?;
-    let txt2 = TXT2::write_binary(strings, msbt.endianness)?;
+    let lbl1 = LBL1::write_binary(strings.clone(), msbt.endianness)?;
+    let atr1 = ATR1::write_binary(strings.clone(), msbt.endianness)?;
+    let txt2 = TXT2::write_binary(strings.clone(), msbt.endianness)?;
+    let header = Header::write_binary(3, (lbl1.len()+atr1.len()+txt2.len()) as u32, msbt.endianness)?;
     // let mut i = 0;
     // for byte in &txt2{
     //         print!("{:#x} ", byte);
@@ -17,7 +20,10 @@ fn main() -> ::msbt::Result<()> {
     //             print!("\n");
     //     }
     // }
-    let mut result = File::create("foo.txt")?;
+    let mut result = File::create("foo.msbt")?;
+    result.write(&header)?;
+    result.write(&lbl1)?;
+    result.write(&atr1)?;
     result.write(&txt2)?;
     Ok(())
 }
