@@ -21,7 +21,8 @@ pub struct LabelDef{
 pub struct Label{
     pub size: u8,
     pub label: String,
-    pub string_index: u32
+    pub string_index: u32,
+    hash: u8
 }
 
 impl LBL1 {
@@ -74,8 +75,9 @@ impl LBL1 {
                 let index = u32::read_from(buffer, order)?;
                 labels.push(Label {
                     size: size,
-                    label: String::from_utf8(string)?,
-                    string_index: index
+                    label: String::from_utf8(string.clone())?,
+                    string_index: index,
+                    hash: Self::calculate_hash(String::from_utf8(string)?) as u8
                 });
             }
         }
@@ -83,63 +85,72 @@ impl LBL1 {
     }
     pub fn write_binary(msbt_strings: Vec<MSBTString>, order: bytestream::ByteOrder) -> Result<Vec<u8>> {
         let mut result = Vec::<u8>::new();
-        let mut offsets = Vec::<LabelDef>::new();
-        let mut strings = Vec::<u8>::new();
-        let mut new_strings = msbt_strings.clone();
-        let label_amount = msbt_strings.len();
-        let  mut per_section = label_amount/101+1;
-        let mut last_offset = 0x32C; //Always the same for MSBT
+        let mut labels = Vec::<Label>::new();
+        let mut label_defs = Vec::<LabelDef>::new();
+        let mut labels_raw = Vec::<u8>::new();
+        let base_offset = 0x32C; //Always the same for MSBT
+        let mut label_defs_raw = Vec::<u8>::new();
 
-        while !new_strings.is_empty() {
-            let mut label_def = LabelDef{ amount: 0, offset: last_offset };
-            for _i in 0..per_section{
-                if !new_strings.is_empty() {
-                    label_def.amount += 1;
-                    let mut string = new_strings.pop().unwrap();
-                    let mut added_string = Vec::<u8>::new();
-                    added_string.push(string.label.len() as u8);
-                    added_string.append(&mut string.label.into_bytes());
-                    added_string.append(&mut string.index.to_le_bytes().to_vec());
-                    last_offset += added_string.len() as u32;
-                    strings.append(&mut added_string);
+        for string in msbt_strings {
+            //Calculate the hash
+            let hash = Self::calculate_hash(string.label.clone());
+            let label = Label{
+                size: string.label.len() as u8,
+                label: string.label,
+                string_index: string.index,
+                hash: hash as u8,
+            };
+            labels.push(label);
+        }
+        //Now we prepare the offset array (vector of LabelDef)/the label array (raw)
+        labels.sort_by(|a,b| a.hash.cmp(&b.hash));
+        let mut label_def = LabelDef{amount: 0, offset: base_offset};
+        let mut current_hash = 0;
+        for label in labels{
+            if label.hash != current_hash{
+                label_defs.push(label_def);
+                label_def = LabelDef{amount: 0, offset: base_offset+labels_raw.len() as u32};
+                current_hash = label.hash;
+            }
+            label_def.amount += 1;
+            labels_raw.push(label.size);
+            labels_raw.append(&mut label.label.as_bytes().to_vec());
+            match order {
+                ByteOrder::BigEndian => {labels_raw.append(&mut label.string_index.to_be_bytes().to_vec());}
+                ByteOrder::LittleEndian => {labels_raw.append(&mut label.string_index.to_be_bytes().to_vec());}
+            }
+        }
+        //Finally, we make the raw offset array
+        for label_def in label_defs{
+            match order {
+                ByteOrder::BigEndian => {
+                    label_defs_raw.append(&mut label_def.amount.to_be_bytes().to_vec());
+                    label_defs_raw.append(&mut label_def.offset.to_be_bytes().to_vec());
+                }
+                ByteOrder::LittleEndian => {
+                    label_defs_raw.append(&mut label_def.amount.to_le_bytes().to_vec());
+                    label_defs_raw.append(&mut label_def.offset.to_le_bytes().to_vec());
                 }
             }
-            offsets.push(label_def);
-        }
-        //Pad out the last few blocks
-        if offsets.len() < 101 {
-            let last_label = offsets.pop().unwrap();
-            for _i in offsets.len()..100{
-                let label_def = LabelDef{ amount: 0, offset: last_label.offset };
-                offsets.push(label_def);
-            }
-            offsets.push(last_label);
         }
 
-        let section_size = 0x32C+strings.len() as u32;
         //binary tiem
-
+        let section_size = labels_raw.len() + label_defs_raw.len() + 4;
         result.append(&mut b"LBL1".to_vec());
         match order {
             ByteOrder::BigEndian => {
-                result.append(&mut section_size.to_be_bytes().to_vec());
+                result.append(&mut (section_size as u32).to_be_bytes().to_vec());
                 result.append(&mut vec![0,0,0,0,0,0,0,0]);
                 result.append(&mut (101 as u32).to_be_bytes().to_vec());
-                for offset in offsets{
-                    result.append(&mut offset.amount.to_be_bytes().to_vec());
-                    result.append(&mut offset.offset.to_be_bytes().to_vec());
-                }
-                    result.append(&mut strings.clone());
+                result.append(&mut label_defs_raw.clone());
+                result.append(&mut labels_raw.clone());
             }
             ByteOrder::LittleEndian => {
-                result.append(&mut section_size.to_le_bytes().to_vec());
+                result.append(&mut (section_size as u32).to_le_bytes().to_vec());
                 result.append(&mut vec![0,0,0,0,0,0,0,0]);
                 result.append(&mut (101 as u32).to_le_bytes().to_vec());
-                for offset in offsets{
-                    result.append(&mut offset.amount.to_le_bytes().to_vec());
-                    result.append(&mut offset.offset.to_le_bytes().to_vec());
-                }
-                    result.append(&mut strings.clone());
+                result.append(&mut label_defs_raw.clone());
+                result.append(&mut labels_raw.clone());
             }
         }
         let padding = 16 - result.len() %16;
@@ -148,5 +159,13 @@ impl LBL1 {
         }
 
         Ok(result)
+    }
+
+    fn calculate_hash(label: String) -> u32{
+        let mut hash:u32 = 0;
+        for char in label.as_bytes(){
+            hash = hash.wrapping_mul(0x492) + (*char) as u32 ;
+        }
+        return hash & 0xFFFFFFFF;
     }
 }
