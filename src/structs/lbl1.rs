@@ -27,6 +27,7 @@ pub struct Label{
 
 impl LBL1 {
     pub fn read_from<R: Read + Seek>(buffer: &mut R, order: bytestream::ByteOrder) -> Result<LBL1> {
+        println!("Extracting labels...");
         let block_start = buffer.stream_position()?;
         let mut magic = vec![0u8;4];
         buffer.read_exact(&mut magic)?;
@@ -41,6 +42,7 @@ impl LBL1 {
         buffer.seek(SeekFrom::Start(start_block))?;
         let labels = Self::get_labels(buffer, order, label_defs.clone())?;
         buffer.seek(SeekFrom::Start(block_start+0x10+section_size as u64+(0x10-(section_size%0x10)) as u64))?;
+        println!("Extracted labels.");
         Ok(LBL1{
             magic: magic,
             section_size: section_size,
@@ -84,6 +86,7 @@ impl LBL1 {
         Ok(labels)
     }
     pub fn write_binary(msbt_strings: Vec<MSBTString>, order: bytestream::ByteOrder) -> Result<Vec<u8>> {
+        println!("Formatting labels...");
         let mut result = Vec::<u8>::new();
         let mut labels = Vec::<Label>::new();
         let mut label_defs = vec![LabelDef{ amount: 0, offset: 0 };101];
@@ -177,6 +180,7 @@ impl LBL1 {
         for _i in 0..padding{
             result.push(0xD0);
         }
+        println!("Formated labels.");
 
         Ok(result)
     }

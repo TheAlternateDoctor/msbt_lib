@@ -13,6 +13,7 @@ pub struct TXT2{
 
 impl TXT2{
     pub fn read_from<R: Read + Seek>(buffer: &mut R, order: bytestream::ByteOrder) -> Result<TXT2> {
+        println!("Extracting strings...");
         let block_start = buffer.stream_position()?;
         let mut magic = vec![0u8;4];
         buffer.read_exact(&mut magic)?;
@@ -27,6 +28,7 @@ impl TXT2{
             offsets.push(u32::read_from(buffer, order)?);
         }
         let strings = Self::get_strings(buffer, order, offsets.clone(), block_start+0x10)?;
+        println!("Extracted strings.");
         Ok(TXT2{
             magic: magic,
             section_size: section_size,
@@ -64,6 +66,7 @@ impl TXT2{
     }
 
     pub fn write_binary(msbt_strings: Vec<MSBTString>, order: bytestream::ByteOrder) -> Result<Vec<u8>> {
+        println!("Formatting strings...");
         let mut result = Vec::<u8>::new();
         let mut offsets = Vec::<u32>::new();
         let mut strings = Vec::<Vec<u8>>::new();
@@ -111,6 +114,7 @@ impl TXT2{
             result.push(0xD0);
         }
 
+        println!("Formated strings.");
         Ok(result)
     }
 }

@@ -15,6 +15,7 @@ pub struct Header{
 
 impl Header{
     pub fn read_from<R: Read+Seek>(buffer: &mut R) -> Result<Header> {
+        println!("Extracting header...");
         let mut magic = vec![0u8;8];
         buffer.read_exact(&mut magic)?;
         if magic != b"MsgStdBn" {
@@ -31,6 +32,7 @@ impl Header{
             endianness_bool = false;
         }
         buffer.seek(SeekFrom::Current(10))?;
+        println!("Extracted header.");
         Ok(Header{
             magic: magic,
             endianness: endianness_bool,
@@ -41,7 +43,9 @@ impl Header{
             filesize: u32::read_from(buffer, endianness)?,
         })
     }
+
     pub fn write_binary(section_amount: u16,section_sizes: u32, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
+        println!("Formatting header...");
         let mut result = Vec::<u8>::new();
         let section_size = 8 as u32;
         //binary tiem
@@ -66,7 +70,7 @@ impl Header{
         for _i in 0..padding{
             result.push(0x0);
         }
-
+        println!("Formated header.");
         Ok(result)
     }
 }
