@@ -11,6 +11,13 @@ pub struct TXT2{
     pub strings: Vec<Vec<u8>>
 }
 
+struct ControlCode{
+    tag_group: u16,
+    tag_type: u16,
+    params_size: u16,
+    params: Vec<u8>
+}
+
 impl TXT2{
     pub fn read_from<R: Read + Seek>(buffer: &mut R, order: bytestream::ByteOrder) -> Result<TXT2> {
         println!("Extracting strings...");
@@ -116,5 +123,54 @@ impl TXT2{
 
         println!("Formated strings.");
         Ok(result)
+    }
+
+    // Control code format: \[groupe.type.raw as XX] i.e. \[0.3.E4 00 00 FF] for red colour
+    pub fn parse_string(string: Vec<u8>, order: bytestream::ByteOrder) -> String{
+        let mut result = String::new();
+        let mut revert_string:Vec<u8> = string.into_iter().rev().collect();
+        while !revert_string.is_empty() {
+            let char_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
+            let char= Self::read_char(char_temp, order);
+            if char == 0x0E { //Control code!
+                let mut control_code = ControlCode {tag_group:0,tag_type:0,params_size:0,params:Vec::<u8>::new()};
+                let char_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
+                let char = Self::read_char(char_temp, order);
+                control_code.tag_group = char;
+
+                let char_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
+                let char = Self::read_char(char_temp, order);
+                control_code.tag_type = char;
+
+                let char_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
+                let char = Self::read_char(char_temp, order);
+                control_code.params_size = char;
+                for _i in 0..control_code.params_size {
+                    control_code.params.push(revert_string.pop().unwrap());
+                }
+                // Now we write the final string
+                let mut control_string = String::from("\\[");
+                control_string += &control_code.tag_group.to_string();
+                control_string += ".";
+                control_string += &control_code.tag_type.to_string();
+                control_string += ".";
+                for code in control_code.params{
+                    control_string += &format!("{code:X}");
+                    control_string += " ";
+                }
+                control_string += "]";
+                result.push_str(&control_string);
+            } else {
+                result.push(std::char::from_u32(char as u32).unwrap());
+            }
+        }
+        return result;
+    }
+
+    fn read_char(char_temp: [u8;2], order: bytestream::ByteOrder) -> u16{
+        match order {
+            ByteOrder::BigEndian => return u16::from_be_bytes(char_temp),
+            ByteOrder::LittleEndian => return u16::from_le_bytes(char_temp),
+        }
     }
 }
