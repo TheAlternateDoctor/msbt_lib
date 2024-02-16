@@ -132,19 +132,25 @@ impl TXT2{
         while !revert_string.is_empty() {
             let char_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
             let char= Self::read_char(char_temp, order);
-            if char == 0x0E { //Control code!
+            if char == 0x0E{ //Start of control code!
                 let mut control_code = ControlCode {tag_group:0,tag_type:0,params_size:0,params:Vec::<u8>::new()};
-                let char_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
-                let char = Self::read_char(char_temp, order);
-                control_code.tag_group = char;
 
-                let char_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
-                let char = Self::read_char(char_temp, order);
-                control_code.tag_type = char;
+                //Reading the group of the code
+                let byte_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
+                let byte = Self::read_char(byte_temp, order);
+                control_code.tag_group = byte;
 
-                let char_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
-                let char = Self::read_char(char_temp, order);
-                control_code.params_size = char;
+                //Reading the type of the code
+                let byte_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
+                let byte = Self::read_char(byte_temp, order);
+                control_code.tag_type = byte;
+
+                //Reading the amount of arguments
+                let byte_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
+                let byte = Self::read_char(byte_temp, order);
+                control_code.params_size = byte;
+
+                //Reading the arguments
                 for _i in 0..control_code.params_size {
                     control_code.params.push(revert_string.pop().unwrap());
                 }
@@ -155,9 +161,30 @@ impl TXT2{
                 control_string += &control_code.tag_type.to_string();
                 control_string += ".";
                 for code in control_code.params{
-                    control_string += &format!("{code:X}");
+                    control_string += &format!("{code:02X}");
                     control_string += " ";
                 }
+                control_string = control_string[0..control_string.len()-1].to_string();
+                control_string += "]";
+                result.push_str(&control_string);
+            } else if char == 0x0F{ // End of control code!
+                let mut control_code = ControlCode {tag_group:0,tag_type:0,params_size:0,params:Vec::<u8>::new()};
+
+                //Reading the group of the code
+                let byte_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
+                let byte = Self::read_char(byte_temp, order);
+                control_code.tag_group = byte;
+
+                //Reading the type of the code
+                let byte_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
+                let byte = Self::read_char(byte_temp, order);
+                control_code.tag_type = byte;
+                
+                // Now we write the final string
+                let mut control_string = String::from("/[");
+                control_string += &control_code.tag_group.to_string();
+                control_string += ".";
+                control_string += &control_code.tag_type.to_string();
                 control_string += "]";
                 result.push_str(&control_string);
             } else {
