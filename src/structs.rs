@@ -1,5 +1,3 @@
-use self::lbl1::{Label, LabelDef};
-
 pub mod header;
 pub mod lbl1;
 pub mod atr1;

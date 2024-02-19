@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::{Read, Seek, SeekFrom}, iter::Map};
+use std::{collections::HashMap, io::{Read, Seek, SeekFrom}, iter::Map, ptr::null};
 use bytestream::{ByteOrder, StreamReader};
 use crate::{error::{Error, Result}, msbt::MSBTString};
 
@@ -18,30 +18,31 @@ struct ControlCode{
     params: Vec<u8>
 }
 
+
 const ESCAPE_CODES_3DS:[(&str, u16);23] = [
-("A_button_3DS", 0xE000),
-("B_button_3DS", 0xE001),
-("X_button_3DS", 0xE002),
-("Y_button_3DS", 0xE003),
-("L_button_3DS", 0xE004),
-("R_button_3DS", 0xE005),
-("D_pad_3DS", 0xE006),
-("Circle_pad_3DS", 0xE077),
-("Power_button_3DS", 0xE078),
-("D_pad_up_3DS", 0xE079),
-("D_pad_down_3DS", 0xE07A),
-("D_pad_left_3DS", 0xE07B),
-("D_pad_right_3DS", 0xE07C),
-("D_pad_up_down_3DS", 0xE07D),
-("D_pad_left_right_3DS", 0xE07E),
-("Camera_3DS", 0xE01E),
-("Close_empty_3DS", 0xE070),
-("Close_full_3DS", 0xE071),
-("Back_3DS", 0xE072),
-("Home_3DS", 0xE073),
-("Steps_3DS", 0xE074),
-("Play_coin_3DS", 0xE075),
-("Video_3DS", 0xE076),
+    ("A_button_3DS", 0xE000),
+    ("B_button_3DS", 0xE001),
+    ("X_button_3DS", 0xE002),
+    ("Y_button_3DS", 0xE003),
+    ("L_button_3DS", 0xE004),
+    ("R_button_3DS", 0xE005),
+    ("D_pad_3DS", 0xE006),
+    ("Circle_pad_3DS", 0xE077),
+    ("Power_button_3DS", 0xE078),
+    ("D_pad_up_3DS", 0xE079),
+    ("D_pad_down_3DS", 0xE07A),
+    ("D_pad_left_3DS", 0xE07B),
+    ("D_pad_right_3DS", 0xE07C),
+    ("D_pad_up_down_3DS", 0xE07D),
+    ("D_pad_left_right_3DS", 0xE07E),
+    ("Camera_3DS", 0xE01E),
+    ("Close_empty_3DS", 0xE070),
+    ("Close_full_3DS", 0xE071),
+    ("Back_3DS", 0xE072),
+    ("Home_3DS", 0xE073),
+    ("Steps_3DS", 0xE074),
+    ("Play_coin_3DS", 0xE075),
+    ("Video_3DS", 0xE076),
 ];
 
 const ESCAPE_CODES_WII:[(&str, u16);44] = [
@@ -290,7 +291,7 @@ impl TXT2{
         let mut magic = vec![0u8;4];
         buffer.read_exact(&mut magic)?;
         if magic != b"TXT2" {
-            return Err(Error::Malformed)
+            return Err(Error::MalformedFile)
         }
         let section_size = u32::read_from(buffer, order)?;
         buffer.seek(SeekFrom::Current(8))?;
@@ -390,7 +391,7 @@ impl TXT2{
         Ok(result)
     }
 
-    // Control code format: \[groupe.type.raw as XX] i.e. \[0.3.E4 00 00 FF] for red colour
+    // Control code format: [CMD groupe.type.raw as XX] i.e. \[RawCmd 0.3.E4 00 00 FF] for red colour
     pub fn parse_string(string: Vec<u8>, order: bytestream::ByteOrder) -> String{
         let mut result = String::new();
         let mut revert_string:Vec<u8> = string.into_iter().rev().collect();
@@ -453,7 +454,7 @@ impl TXT2{
                 control_string += "]";
                 result.push_str(&control_string);
             } else {
-                result.push(std::char::from_u32(char as u32).unwrap());
+                result.push_str(&Self::search_to_escape_code(char));
             }
         }
         return result;
@@ -465,4 +466,25 @@ impl TXT2{
             ByteOrder::LittleEndian => return u16::from_le_bytes(char_temp),
         }
     }
+
+    fn search_to_escape_code(char: u16) -> String {
+        let result = ESCAPE_CODES_3DS.into_iter().find(|&x| x.1 == char);
+        if !result.is_none(){
+            return format!("[!{}]",result.unwrap().0);
+        }
+        let result = ESCAPE_CODES_SWITCH.into_iter().find(|&x| x.1 == char);
+        if !result.is_none(){
+            return format!("[!{}]",result.unwrap().0);
+        }
+        let result = ESCAPE_CODES_WII.into_iter().find(|&x| x.1 == char);
+        if !result.is_none(){
+            return format!("[!{}]",result.unwrap().0);
+        }
+        let result = ESCAPE_CODES_DS.into_iter().find(|&x| x.1 == char);
+        if !result.is_none(){
+            return format!("[!{}]",result.unwrap().0);
+        }
+        return std::char::from_u32(char as u32).unwrap().to_string();
+    }
+
 }

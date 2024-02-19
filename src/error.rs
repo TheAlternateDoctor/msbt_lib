@@ -18,7 +18,11 @@ pub enum Error {
 
     /// Error called when there's an error in the file
     #[error("File given is malformed!")]
-    Malformed,
+    MalformedFile,
+
+    /// Error called when an escape code is malformed
+    #[error("Escape code is broken!")]
+    MalformedEscape,
 }
 
 impl From<std::io::Error> for Error {

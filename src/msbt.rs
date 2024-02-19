@@ -3,7 +3,7 @@ use std::io::{Read, Seek};
 use bytestream::ByteOrder;
 
 use crate::structs::{Header, ATR1, LBL1, TXT2};
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 
 #[derive(Clone)]

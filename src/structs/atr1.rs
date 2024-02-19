@@ -17,7 +17,7 @@ impl ATR1{
         let mut magic = vec![0u8;4];
         buffer.read_exact(&mut magic)?;
         if magic != b"ATR1" {
-            return Err(Error::Malformed)
+            return Err(Error::MalformedFile)
         }
         let section_size = u32::read_from(buffer, order)?;
         buffer.seek(SeekFrom::Current(8))?;
