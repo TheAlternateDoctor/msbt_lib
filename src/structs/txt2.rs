@@ -1,5 +1,6 @@
 use std::{collections::HashMap, io::{Read, Seek, SeekFrom}, iter::Map, ptr::null};
 use bytestream::{ByteOrder, StreamReader};
+use regex::Regex;
 use crate::{error::{Error, Result}, msbt::MSBTString};
 
 #[derive(Debug, Clone)]
@@ -392,7 +393,7 @@ impl TXT2{
     }
 
     // Control code format: [CMD groupe.type.raw as XX] i.e. \[RawCmd 0.3.E4 00 00 FF] for red colour
-    pub fn parse_string(string: Vec<u8>, order: bytestream::ByteOrder) -> String{
+    pub fn parse_binary(string: Vec<u8>, order: bytestream::ByteOrder) -> String{
         let mut result = String::new();
         let mut revert_string:Vec<u8> = string.into_iter().rev().collect();
         while !revert_string.is_empty() {
@@ -487,4 +488,24 @@ impl TXT2{
         return std::char::from_u32(char as u32).unwrap().to_string();
     }
 
+    pub fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
+        let mut result = Vec::<u8>::new();
+        let escape_regex = Regex::new(r"(\[![0-9a-zA-Z_]+\])").unwrap();
+        let control_regex = Regex::new(r"(\[[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}[ 0-9A-F]*])").unwrap();
+        let control_close_regex = Regex::new(r"(\[\/[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}])").unwrap();
+        let mut escape_codes = HashMap::new();
+        let mut control_codes:Vec<&str> = vec![];
+        let mut control_codes_close:Vec<&str> = vec![];
+        for (pos, [code]) in escape_regex.captures_iter(string).map(|c| c.extract()) {
+            escape_codes.insert(pos, code);
+        }
+        for (_, [code]) in control_regex.captures_iter(string).map(|c| c.extract()) {
+            control_codes.push(code);
+        }
+        for (_, [code]) in control_close_regex.captures_iter(string).map(|c| c.extract()) {
+            control_codes_close.push(code);
+        }
+        println!("{:?}",escape_codes);
+        Ok(result)
+    }
 }
