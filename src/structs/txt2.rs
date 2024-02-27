@@ -12,6 +12,7 @@ pub struct TXT2{
     pub strings: Vec<Vec<u8>>
 }
 
+#[derive(Debug)]
 struct ControlCode{
     tag_group: u16,
     tag_type: u16,
@@ -430,7 +431,9 @@ impl TXT2{
                     control_string += " ";
                     for code in control_code.params{
                         control_string += &format!("{code:02X}");
+                        control_string += ".";
                     }
+                    control_string.truncate(control_string.len()-1);
                 }
                 control_string += "]";
                 result.push_str(&control_string);
@@ -522,7 +525,75 @@ impl TXT2{
         return 0;
     }
 
-    pub fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
+    fn convert_control_code(code: &str, order: bytestream::ByteOrder) -> Vec<u8>{
+        let mut raw_bytes = Vec::<u8>::new();
+        let mut bare_code = code.to_string();
+        bare_code.remove(0);
+        bare_code.pop();
+        let bare_content = bare_code.split(" ").collect::<Vec<&str>>();
+        if bare_content[0] == "RawCmd" {
+            let mut control_code = ControlCode{ 
+                tag_group: 0, 
+                tag_type: 0, 
+                params_size: 0, 
+                params: Vec::<u8>::new() 
+            };
+            let code_def = bare_content[1].split(".").collect::<Vec<&str>>();
+            control_code.tag_group = code_def[0].parse().unwrap();
+            control_code.tag_type = code_def[1].parse().unwrap();
+
+            control_code.params_size = (bare_content[2].len()/2) as u16;
+            for byte in bare_content[2].split(".").collect::<Vec<&str>>() {
+                control_code.params.push(u8::from_str_radix(&byte, 16).unwrap());
+            }
+            raw_bytes.push(0x0E);
+            raw_bytes.push(0x00);
+            match order{
+                ByteOrder::BigEndian => {
+                    raw_bytes.append(&mut control_code.tag_group.to_be_bytes().to_vec());
+                    raw_bytes.append(&mut control_code.tag_type.to_be_bytes().to_vec());
+                    raw_bytes.append(&mut control_code.params_size.to_be_bytes().to_vec());
+                },
+                ByteOrder::LittleEndian => {
+                    raw_bytes.append(&mut control_code.tag_group.to_le_bytes().to_vec());
+                    raw_bytes.append(&mut control_code.tag_type.to_le_bytes().to_vec());
+                    raw_bytes.append(&mut control_code.params_size.to_le_bytes().to_vec());
+                },
+            }
+            raw_bytes.append(&mut control_code.params);
+        }
+        return raw_bytes;
+    }
+
+    pub fn convert_control_code_close(code: &str, order: bytestream::ByteOrder) -> Vec<u8>{
+        let mut raw_bytes = Vec::<u8>::new();
+        let mut bare_code = code.to_string();
+        bare_code.remove(0);
+        bare_code.remove(0);
+        bare_code.pop();
+        let bare_content = bare_code.split(" ").collect::<Vec<&str>>();
+        if bare_content[0] == "RawCmd" {
+            let code_def = bare_content[1].split(".").collect::<Vec<&str>>();
+            let tag_group: u16 = code_def[0].parse().unwrap();
+            let tag_type: u16 = code_def[1].parse().unwrap();
+
+            raw_bytes.push(0x0F);
+            raw_bytes.push(0x00);
+            match order{
+                ByteOrder::BigEndian => {
+                    raw_bytes.append(&mut tag_group.to_be_bytes().to_vec());
+                    raw_bytes.append(&mut tag_type.to_be_bytes().to_vec());
+                },
+                ByteOrder::LittleEndian => {
+                    raw_bytes.append(&mut tag_group.to_le_bytes().to_vec());
+                    raw_bytes.append(&mut tag_type.to_le_bytes().to_vec());
+                },
+            }
+        }
+        return raw_bytes;
+    }
+
+    fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
         let mut result = Vec::<u8>::new();
         let escape_regex = Regex::new(r"(\[![0-9a-zA-Z_]+\])").unwrap();
         let control_regex = Regex::new(r"(\[[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}[ 0-9A-F]*])").unwrap();
