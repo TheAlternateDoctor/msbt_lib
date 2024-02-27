@@ -469,23 +469,57 @@ impl TXT2{
     }
 
     fn search_to_escape_code(char: u16) -> String {
-        let result = ESCAPE_CODES_3DS.into_iter().find(|&x| x.1 == char);
-        if !result.is_none(){
-            return format!("[!{}]",result.unwrap().0);
-        }
-        let result = ESCAPE_CODES_SWITCH.into_iter().find(|&x| x.1 == char);
-        if !result.is_none(){
-            return format!("[!{}]",result.unwrap().0);
-        }
-        let result = ESCAPE_CODES_WII.into_iter().find(|&x| x.1 == char);
-        if !result.is_none(){
-            return format!("[!{}]",result.unwrap().0);
-        }
-        let result = ESCAPE_CODES_DS.into_iter().find(|&x| x.1 == char);
-        if !result.is_none(){
-            return format!("[!{}]",result.unwrap().0);
+        if char >= 0xE000 {
+            let result = ESCAPE_CODES_3DS.into_iter().find(|&x| x.1 == char);
+            if !result.is_none(){
+                return format!("[!{}]",result.unwrap().0);
+            }
+            let result = ESCAPE_CODES_SWITCH.into_iter().find(|&x| x.1 == char);
+            if !result.is_none(){
+                return format!("[!{}]",result.unwrap().0);
+            }
+            let result = ESCAPE_CODES_WII.into_iter().find(|&x| x.1 == char);
+            if !result.is_none(){
+                return format!("[!{}]",result.unwrap().0);
+            }
+            let result = ESCAPE_CODES_DS.into_iter().find(|&x| x.1 == char);
+            if !result.is_none(){
+                return format!("[!{}]",result.unwrap().0);
+            }
         }
         return std::char::from_u32(char as u32).unwrap().to_string();
+    }
+
+    fn search_from_escape_code(code: &str) -> u16 {
+        let mut bare_code = code.to_string();
+        bare_code.pop();
+        bare_code.remove(0);
+        bare_code.remove(0);
+        if bare_code.contains("3DS") {
+            let result = ESCAPE_CODES_3DS.into_iter().find(|&x| x.0 == bare_code);
+            if !result.is_none(){
+                return result.unwrap().1;
+            }
+        }
+        if bare_code.contains("Switch") {
+            let result = ESCAPE_CODES_SWITCH.into_iter().find(|&x| x.0 == bare_code);
+            if !result.is_none(){
+                return result.unwrap().1;
+            }
+        }
+        if bare_code.contains("Wii") {
+            let result = ESCAPE_CODES_WII.into_iter().find(|&x| x.0 == bare_code);
+            if !result.is_none(){
+                return result.unwrap().1;
+            }
+        }
+        if bare_code.contains("DS") {
+            let result = ESCAPE_CODES_DS.into_iter().find(|&x| x.0 == bare_code);
+            if !result.is_none(){
+                return result.unwrap().1;
+            }
+        }
+        return 0;
     }
 
     pub fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
@@ -505,7 +539,7 @@ impl TXT2{
         for (_, [code]) in control_close_regex.captures_iter(string).map(|c| c.extract()) {
             control_codes_close.push(code);
         }
-        println!("{:?}",escape_codes);
+        println!("{:?}",control_codes_close);
         Ok(result)
     }
 }
