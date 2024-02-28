@@ -1,6 +1,6 @@
-use std::{collections::HashMap, io::{Read, Seek, SeekFrom}, iter::Map, ptr::null};
+use std::{collections::{HashMap, VecDeque}, io::{Read, Seek, SeekFrom}, iter::Map, ptr::null, str::Matches};
 use bytestream::{ByteOrder, StreamReader};
-use regex::Regex;
+use regex::{Regex, Match};
 use crate::{error::{Error, Result}, msbt::MSBTString};
 
 #[derive(Debug, Clone)]
@@ -393,7 +393,7 @@ impl TXT2{
         Ok(result)
     }
 
-    // Control code format: [CMD groupe.type.raw as XX] i.e. \[RawCmd 0.3.E4 00 00 FF] for red colour
+    // Control code format: [CMD groupe.type raw_as_XX] i.e. \[RawCmd 0.3 E4_00_00_FF] for red colour
     pub fn parse_binary(string: Vec<u8>, order: bytestream::ByteOrder) -> String{
         let mut result = String::new();
         let mut revert_string:Vec<u8> = string.into_iter().rev().collect();
@@ -458,7 +458,7 @@ impl TXT2{
                 control_string += "]";
                 result.push_str(&control_string);
             } else {
-                result.push_str(&Self::search_to_escape_code(char));
+                result.push_str(&Self::search_escape_code(char));
             }
         }
         return result;
@@ -471,7 +471,7 @@ impl TXT2{
         }
     }
 
-    fn search_to_escape_code(char: u16) -> String {
+    fn search_escape_code(char: u16) -> String {
         if char >= 0xE000 {
             let result = ESCAPE_CODES_3DS.into_iter().find(|&x| x.1 == char);
             if !result.is_none(){
@@ -493,7 +493,7 @@ impl TXT2{
         return std::char::from_u32(char as u32).unwrap().to_string();
     }
 
-    fn search_from_escape_code(code: &str) -> u16 {
+    fn convert_escape_code(code: &str, order: bytestream::ByteOrder) -> Vec<u8> {
         let mut bare_code = code.to_string();
         bare_code.pop();
         bare_code.remove(0);
@@ -501,28 +501,40 @@ impl TXT2{
         if bare_code.contains("3DS") {
             let result = ESCAPE_CODES_3DS.into_iter().find(|&x| x.0 == bare_code);
             if !result.is_none(){
-                return result.unwrap().1;
+                match order{
+                    ByteOrder::BigEndian => return result.unwrap().1.to_be_bytes().to_vec(),
+                    ByteOrder::LittleEndian => return result.unwrap().1.to_le_bytes().to_vec(),
+                }
             }
         }
         if bare_code.contains("Switch") {
             let result = ESCAPE_CODES_SWITCH.into_iter().find(|&x| x.0 == bare_code);
             if !result.is_none(){
-                return result.unwrap().1;
+                match order{
+                    ByteOrder::BigEndian => return result.unwrap().1.to_be_bytes().to_vec(),
+                    ByteOrder::LittleEndian => return result.unwrap().1.to_le_bytes().to_vec(),
+                }
             }
         }
         if bare_code.contains("Wii") {
             let result = ESCAPE_CODES_WII.into_iter().find(|&x| x.0 == bare_code);
             if !result.is_none(){
-                return result.unwrap().1;
+                match order{
+                    ByteOrder::BigEndian => return result.unwrap().1.to_be_bytes().to_vec(),
+                    ByteOrder::LittleEndian => return result.unwrap().1.to_le_bytes().to_vec(),
+                }
             }
         }
         if bare_code.contains("DS") {
             let result = ESCAPE_CODES_DS.into_iter().find(|&x| x.0 == bare_code);
             if !result.is_none(){
-                return result.unwrap().1;
+                match order{
+                    ByteOrder::BigEndian => return result.unwrap().1.to_be_bytes().to_vec(),
+                    ByteOrder::LittleEndian => return result.unwrap().1.to_le_bytes().to_vec(),
+                }
             }
         }
-        return 0;
+        return vec![0,0];
     }
 
     fn convert_control_code(code: &str, order: bytestream::ByteOrder) -> Vec<u8>{
@@ -542,9 +554,13 @@ impl TXT2{
             control_code.tag_group = code_def[0].parse().unwrap();
             control_code.tag_type = code_def[1].parse().unwrap();
 
-            control_code.params_size = (bare_content[2].len()/2) as u16;
-            for byte in bare_content[2].split(".").collect::<Vec<&str>>() {
-                control_code.params.push(u8::from_str_radix(&byte, 16).unwrap());
+            if bare_content.len() > 2{
+                control_code.params_size = ((bare_content[2].len()+1)/3) as u16;
+                for byte in bare_content[2].split(".").collect::<Vec<&str>>() {
+                    control_code.params.push(u8::from_str_radix(&byte, 16).unwrap());
+                }
+            } else {
+                control_code.params_size = 0u16;
             }
             raw_bytes.push(0x0E);
             raw_bytes.push(0x00);
@@ -560,12 +576,14 @@ impl TXT2{
                     raw_bytes.append(&mut control_code.params_size.to_le_bytes().to_vec());
                 },
             }
-            raw_bytes.append(&mut control_code.params);
+            if control_code.params_size != 0{
+                raw_bytes.append(&mut control_code.params);
+            }
         }
         return raw_bytes;
     }
 
-    pub fn convert_control_code_close(code: &str, order: bytestream::ByteOrder) -> Vec<u8>{
+    fn convert_control_code_close(code: &str, order: bytestream::ByteOrder) -> Vec<u8>{
         let mut raw_bytes = Vec::<u8>::new();
         let mut bare_code = code.to_string();
         bare_code.remove(0);
@@ -593,24 +611,56 @@ impl TXT2{
         return raw_bytes;
     }
 
-    fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
+    fn convert_char(char: char, order:bytestream::ByteOrder) -> Vec<u8> {
+        let mut result = Vec::<u8>::new();
+        let mut char_utf8 = [0; 2];
+        char.encode_utf8(&mut char_utf8);
+        match order{
+            ByteOrder::LittleEndian => result.append(&mut char_utf8.to_vec()),
+            ByteOrder::BigEndian => result.append(&mut char_utf8.to_vec().into_iter().rev().collect()),
+        }
+        return result;
+    }
+
+    pub fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
         let mut result = Vec::<u8>::new();
         let escape_regex = Regex::new(r"(\[![0-9a-zA-Z_]+\])").unwrap();
-        let control_regex = Regex::new(r"(\[[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}[ 0-9A-F]*])").unwrap();
+        let control_regex = Regex::new(r"(\[[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}[ 0-9A-F.]*])").unwrap();
         let control_close_regex = Regex::new(r"(\[\/[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}])").unwrap();
-        let mut escape_codes = HashMap::new();
-        let mut control_codes:Vec<&str> = vec![];
-        let mut control_codes_close:Vec<&str> = vec![];
-        for (pos, [code]) in escape_regex.captures_iter(string).map(|c| c.extract()) {
-            escape_codes.insert(pos, code);
+        let mut codes = Vec::<(usize, Vec<u8>)>::new();
+        let mut send_help = Vec::<(usize, &str)>::new();
+        for code_match in control_regex.find_iter(string) {
+            send_help.push((code_match.start(), code_match.as_str()));
+            codes.push((code_match.start(), Self::convert_control_code(code_match.as_str(), order)));
         }
-        for (_, [code]) in control_regex.captures_iter(string).map(|c| c.extract()) {
-            control_codes.push(code);
+        for code_match in escape_regex.find_iter(string) {
+            send_help.push((code_match.start(), code_match.as_str()));
+            codes.push((code_match.start(), Self::convert_escape_code(code_match.as_str(), order)));
         }
-        for (_, [code]) in control_close_regex.captures_iter(string).map(|c| c.extract()) {
-            control_codes_close.push(code);
+        for code_match in control_close_regex.find_iter(string) {
+            send_help.push((code_match.start(), code_match.as_str()));
+            codes.push((code_match.start(), Self::convert_control_code_close(code_match.as_str(), order)));
         }
-        println!("{:?}",control_codes_close);
+
+        codes.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        println!("{:?}",send_help);
+        let mut pos = 0;
+        let mut char_array: VecDeque<char> = VecDeque::from_iter(string.chars());
+        for code in codes{
+            for _i in pos..code.0{
+                result.append(&mut Self::convert_char(char_array.pop_front().unwrap(), order));
+                pos += 1;
+            }
+            result.append(&mut code.1.clone());
+            let mut char = '[';
+            while char != ']' {
+                char = char_array.pop_front().unwrap();
+                pos+=1;
+            }
+        }
+        for _i in 0..char_array.len(){
+            result.append(&mut Self::convert_char(char_array.pop_front().unwrap(), order));
+        }
         Ok(result)
     }
 }
