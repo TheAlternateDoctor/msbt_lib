@@ -23,6 +23,10 @@ pub enum Error {
     /// Error called when an escape code is malformed
     #[error("Escape code is broken!")]
     MalformedEscape,
+
+    /// Error called when serde_json
+    #[error("Error when parsing JSON!")]
+    MalformedJson(serde_json::Error)
 }
 
 impl From<std::io::Error> for Error {
@@ -34,5 +38,11 @@ impl From<std::io::Error> for Error {
 impl From<std::string::FromUtf8Error> for Error {
     fn from(err: std::string::FromUtf8Error) -> Self {
         Self::StringUtf8Error(err)
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Self {
+        Self::MalformedJson(err)
     }
 }
