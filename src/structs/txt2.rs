@@ -631,37 +631,33 @@ impl TXT2{
 
     fn convert_char(char: char, order:bytestream::ByteOrder) -> Vec<u8> {
         let mut result = Vec::<u8>::new();
-        let mut char_utf8 = [0; 2];
-        char.encode_utf8(&mut char_utf8);
+        let mut char_utf16 = [0; 1];
+        char.encode_utf16(&mut char_utf16);
         match order{
-            ByteOrder::LittleEndian => result.append(&mut char_utf8.to_vec()),
-            ByteOrder::BigEndian => result.append(&mut char_utf8.to_vec().into_iter().rev().collect()),
+            ByteOrder::LittleEndian => result.append(&mut char_utf16.into_iter().map(|c| c.to_le_bytes()).flatten().collect()),
+            ByteOrder::BigEndian => result.append(&mut char_utf16.into_iter().map(|c| c.to_be_bytes()).flatten().collect()),
         }
         return result;
     }
 
     pub fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
+        println!("Parsing \"{}\"", string);
         let mut result = Vec::<u8>::new();
         let escape_regex = Regex::new(r"(\[![0-9a-zA-Z_]+\])").unwrap();
         let control_regex = Regex::new(r"(\[[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}[ 0-9A-F.]*])").unwrap();
         let control_close_regex = Regex::new(r"(\[\/[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}])").unwrap();
         let mut codes = Vec::<(usize, Vec<u8>)>::new();
-        let mut send_help = Vec::<(usize, &str)>::new();
         for code_match in control_regex.find_iter(string) {
-            send_help.push((code_match.start(), code_match.as_str()));
             codes.push((code_match.start(), Self::convert_control_code(code_match.as_str(), order)));
         }
         for code_match in escape_regex.find_iter(string) {
-            send_help.push((code_match.start(), code_match.as_str()));
             codes.push((code_match.start(), Self::convert_escape_code(code_match.as_str(), order)));
         }
         for code_match in control_close_regex.find_iter(string) {
-            send_help.push((code_match.start(), code_match.as_str()));
             codes.push((code_match.start(), Self::convert_control_code_close(code_match.as_str(), order)));
         }
 
         codes.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        println!("{:?}",send_help);
         let mut pos = 0;
         let mut char_array: VecDeque<char> = VecDeque::from_iter(string.chars());
         for code in codes{

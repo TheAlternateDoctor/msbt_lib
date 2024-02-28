@@ -126,9 +126,11 @@ impl LBL1 {
         label_defs.insert(current_hash as usize, label_def);
         //Finally, we make the raw offset array
         let mut empties = 0u8;
+        let mut latest_def= label_defs.get(0).unwrap();
         for i in 0..101{
             let label_def = label_defs.get(i).unwrap();
             if label_def.offset != 0 {
+                latest_def = label_defs.get(i).unwrap();
                 for _i in 0..empties{
                     match order {
                         ByteOrder::BigEndian => {
@@ -154,6 +156,19 @@ impl LBL1 {
                 empties = 0;
             } else {
                 empties += 1;
+            }
+        }
+        //Don't forget to fill it back up again!
+        for _i in 0..empties{
+            match order {
+                ByteOrder::BigEndian => {
+                    label_defs_raw.append(&mut 0u32.to_be_bytes().to_vec());
+                    label_defs_raw.append(&mut (labels_raw.len() as u32 + 0x32Cu32).to_be_bytes().to_vec());
+                }
+                ByteOrder::LittleEndian => {
+                    label_defs_raw.append(&mut 0u32.to_le_bytes().to_vec());
+                    label_defs_raw.append(&mut (labels_raw.len() as u32 + 0x32Cu32).to_le_bytes().to_vec());
+                }
             }
         }
 
