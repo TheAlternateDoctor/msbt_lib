@@ -534,7 +534,11 @@ impl TXT2{
                 }
             }
         }
-        return vec![0,0];
+        let mut raw_bytes = Vec::<u8>::new();
+        for char in code.chars(){
+            raw_bytes.append(&mut Self::convert_char(char, order));
+        }
+        return raw_bytes;
     }
 
     fn convert_control_code(code: &str, order: bytestream::ByteOrder) -> Vec<u8>{
@@ -543,41 +547,48 @@ impl TXT2{
         bare_code.remove(0);
         bare_code.pop();
         let bare_content = bare_code.split(" ").collect::<Vec<&str>>();
-        if bare_content[0] == "RawCmd" {
-            let mut control_code = ControlCode{ 
-                tag_group: 0, 
-                tag_type: 0, 
-                params_size: 0, 
-                params: Vec::<u8>::new() 
-            };
-            let code_def = bare_content[1].split(".").collect::<Vec<&str>>();
-            control_code.tag_group = code_def[0].parse().unwrap();
-            control_code.tag_type = code_def[1].parse().unwrap();
+        match bare_content[0] {
+            "RawCmd" =>{
+                let mut control_code = ControlCode{ 
+                    tag_group: 0, 
+                    tag_type: 0, 
+                    params_size: 0, 
+                    params: Vec::<u8>::new() 
+                };
+                let code_def = bare_content[1].split(".").collect::<Vec<&str>>();
+                control_code.tag_group = code_def[0].parse().unwrap();
+                control_code.tag_type = code_def[1].parse().unwrap();
 
-            if bare_content.len() > 2{
-                control_code.params_size = ((bare_content[2].len()+1)/3) as u16;
-                for byte in bare_content[2].split(".").collect::<Vec<&str>>() {
-                    control_code.params.push(u8::from_str_radix(&byte, 16).unwrap());
+                if bare_content.len() > 2{
+                    control_code.params_size = ((bare_content[2].len()+1)/3) as u16;
+                    for byte in bare_content[2].split(".").collect::<Vec<&str>>() {
+                        control_code.params.push(u8::from_str_radix(&byte, 16).unwrap());
+                    }
+                } else {
+                    control_code.params_size = 0u16;
                 }
-            } else {
-                control_code.params_size = 0u16;
+                raw_bytes.push(0x0E);
+                raw_bytes.push(0x00);
+                match order{
+                    ByteOrder::BigEndian => {
+                        raw_bytes.append(&mut control_code.tag_group.to_be_bytes().to_vec());
+                        raw_bytes.append(&mut control_code.tag_type.to_be_bytes().to_vec());
+                        raw_bytes.append(&mut control_code.params_size.to_be_bytes().to_vec());
+                    },
+                    ByteOrder::LittleEndian => {
+                        raw_bytes.append(&mut control_code.tag_group.to_le_bytes().to_vec());
+                        raw_bytes.append(&mut control_code.tag_type.to_le_bytes().to_vec());
+                        raw_bytes.append(&mut control_code.params_size.to_le_bytes().to_vec());
+                    },
+                }
+                if control_code.params_size != 0{
+                    raw_bytes.append(&mut control_code.params);
+                }
             }
-            raw_bytes.push(0x0E);
-            raw_bytes.push(0x00);
-            match order{
-                ByteOrder::BigEndian => {
-                    raw_bytes.append(&mut control_code.tag_group.to_be_bytes().to_vec());
-                    raw_bytes.append(&mut control_code.tag_type.to_be_bytes().to_vec());
-                    raw_bytes.append(&mut control_code.params_size.to_be_bytes().to_vec());
-                },
-                ByteOrder::LittleEndian => {
-                    raw_bytes.append(&mut control_code.tag_group.to_le_bytes().to_vec());
-                    raw_bytes.append(&mut control_code.tag_type.to_le_bytes().to_vec());
-                    raw_bytes.append(&mut control_code.params_size.to_le_bytes().to_vec());
-                },
-            }
-            if control_code.params_size != 0{
-                raw_bytes.append(&mut control_code.params);
+            _ => {
+                for char in code.chars(){
+                    raw_bytes.append(&mut Self::convert_char(char, order));
+                }
             }
         }
         return raw_bytes;
@@ -590,22 +601,29 @@ impl TXT2{
         bare_code.remove(0);
         bare_code.pop();
         let bare_content = bare_code.split(" ").collect::<Vec<&str>>();
-        if bare_content[0] == "RawCmd" {
-            let code_def = bare_content[1].split(".").collect::<Vec<&str>>();
-            let tag_group: u16 = code_def[0].parse().unwrap();
-            let tag_type: u16 = code_def[1].parse().unwrap();
+        match bare_content[0]{
+            "RawCmd" => {
+                let code_def = bare_content[1].split(".").collect::<Vec<&str>>();
+                let tag_group: u16 = code_def[0].parse().unwrap();
+                let tag_type: u16 = code_def[1].parse().unwrap();
 
-            raw_bytes.push(0x0F);
-            raw_bytes.push(0x00);
-            match order{
-                ByteOrder::BigEndian => {
-                    raw_bytes.append(&mut tag_group.to_be_bytes().to_vec());
-                    raw_bytes.append(&mut tag_type.to_be_bytes().to_vec());
-                },
-                ByteOrder::LittleEndian => {
-                    raw_bytes.append(&mut tag_group.to_le_bytes().to_vec());
-                    raw_bytes.append(&mut tag_type.to_le_bytes().to_vec());
-                },
+                raw_bytes.push(0x0F);
+                raw_bytes.push(0x00);
+                match order{
+                    ByteOrder::BigEndian => {
+                        raw_bytes.append(&mut tag_group.to_be_bytes().to_vec());
+                        raw_bytes.append(&mut tag_type.to_be_bytes().to_vec());
+                    },
+                    ByteOrder::LittleEndian => {
+                        raw_bytes.append(&mut tag_group.to_le_bytes().to_vec());
+                        raw_bytes.append(&mut tag_type.to_le_bytes().to_vec());
+                    },
+                }
+            }
+            _=> {
+                for char in code.chars(){
+                    raw_bytes.append(&mut Self::convert_char(char, order));
+                }
             }
         }
         return raw_bytes;
