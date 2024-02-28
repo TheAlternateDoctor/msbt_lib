@@ -56,7 +56,7 @@ fn main() -> ::msbt::Result<()> {
             strings.push(MSBTString{ index: i, label: label, string: ::msbt::structs::TXT2::parse_string(&corrected_string, order).unwrap() });
             i += 1;
         }
-        let new_msbt = msbt::to_binary(strings, bytestream::ByteOrder::LittleEndian)?;
+        let new_msbt = msbt::to_binary(strings, order)?;
         let mut result = File::create(filename.to_owned()+".msbt")?;
         result.write(&new_msbt)?;
     }
