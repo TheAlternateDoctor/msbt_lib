@@ -97,6 +97,10 @@ fn delete_string(msbt_strings: &mut Vec<MSBTString>,vec_index: usize){
 }
 
 pub fn to_binary(msbt_strings: Vec<MSBTString>, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
+    println!("Formatting {} strings to MSBT, {} endian", msbt_strings.len(), match order{
+    ByteOrder::BigEndian => "big",
+    ByteOrder::LittleEndian => "little",
+    });
     let mut file= Vec::<u8>::new();
     let mut lbl1 = LBL1::write_binary(msbt_strings.clone(), order)?;
     let mut atr1 = ATR1::write_binary(msbt_strings.clone(), order)?;
@@ -106,5 +110,6 @@ pub fn to_binary(msbt_strings: Vec<MSBTString>, order: bytestream::ByteOrder) ->
     file.append(&mut lbl1);
     file.append(&mut atr1);
     file.append(&mut txt2);
+    println!("Formatted MSBT.");
     Ok(file)
 }

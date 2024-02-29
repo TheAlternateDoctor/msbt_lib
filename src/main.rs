@@ -40,7 +40,6 @@ fn main() -> ::msbt::Result<()> {
         };
         let msbt_json = MsbtJson{endianness: order, strings: output_map};
         let serialized = serde_json::to_string_pretty(&msbt_json).unwrap();
-        println!("{:?}", serialized);
         let mut result = File::create(filename.to_owned()+".json")?;
         result.write(serialized.as_bytes())?;
     } else if extension == "json" {
@@ -51,11 +50,13 @@ fn main() -> ::msbt::Result<()> {
             true => bytestream::ByteOrder::BigEndian,
             false => bytestream::ByteOrder::LittleEndian,
         };
+        println!("Parsing {} string(s)...", json.strings.len());
         for (label, string) in json.strings{
             let corrected_string = string+"\0";
             strings.push(MSBTString{ index: i, label: label, string: ::msbt::structs::TXT2::parse_string(&corrected_string, order).unwrap() });
             i += 1;
         }
+        println!("Parsed {} string(s).", strings.len());
         let new_msbt = msbt::to_binary(strings, order)?;
         let mut result = File::create(filename.to_owned()+".msbt")?;
         result.write(&new_msbt)?;

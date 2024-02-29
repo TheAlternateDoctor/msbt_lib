@@ -641,7 +641,7 @@ impl TXT2{
     }
 
     pub fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
-        println!("Parsing \"{}\"", string);
+        // println!("Parsing \"{}\"", string);
         let mut result = Vec::<u8>::new();
         let escape_regex = Regex::new(r"(\[![0-9a-zA-Z_]+\])").unwrap();
         let control_regex = Regex::new(r"(\[[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}[ 0-9A-F.]*])").unwrap();
