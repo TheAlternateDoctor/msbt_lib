@@ -24,9 +24,10 @@ pub enum Error {
     #[error("Escape code is broken!")]
     MalformedEscape,
 
-    /// Error called when serde_json
-    #[error("Error when parsing JSON!")]
-    MalformedJson(serde_json::Error)
+    /// Error called when a toml file is malformed
+    #[error("Toml file is malformed!!")]
+    MalformedToml(toml::de::Error),
+
 }
 
 impl From<std::io::Error> for Error {
@@ -41,8 +42,8 @@ impl From<std::string::FromUtf8Error> for Error {
     }
 }
 
-impl From<serde_json::Error> for Error {
-    fn from(err: serde_json::Error) -> Self {
-        Self::MalformedJson(err)
+impl From<toml::de::Error> for Error {
+    fn from(err: toml::de::Error) -> Self {
+        Self::MalformedToml(err)
     }
 }

@@ -4,7 +4,7 @@ use msbt::msbt;
 use ::msbt::msbt::MSBTString;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use serde_json;
+use toml;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -14,8 +14,9 @@ struct Args {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-struct MsbtJson {
-    endianness:bool,
+struct SerMsbt {
+    is_big_endian:bool,
+    has_attributes:bool,
     strings:HashMap<String, String>
 }
 
@@ -38,15 +39,17 @@ fn main() -> ::msbt::Result<()> {
             bytestream::ByteOrder::BigEndian => true,
             bytestream::ByteOrder::LittleEndian => false,
         };
-        let msbt_json = MsbtJson{endianness: order, strings: output_map};
-        let serialized = serde_json::to_string_pretty(&msbt_json).unwrap();
-        let mut result = File::create(filename.to_owned()+".json")?;
+        let msbt_json = SerMsbt{is_big_endian: order, has_attributes:msbt.has_attributes, strings: output_map};
+        let serialized = toml::ser::to_string_pretty(&msbt_json).unwrap();
+        let mut result = File::create(filename.to_owned()+".toml")?;
         result.write(serialized.as_bytes())?;
-    } else if extension == "json" {
-        let json:MsbtJson = serde_json::from_reader(file)?;
+    } else if extension == "toml" {
+        let mut toml_string = "".to_owned();
+        let _ = file.read_to_string(&mut toml_string);
+        let json:SerMsbt = toml::de::from_str(toml_string.as_str())?;
         let mut strings = Vec::<MSBTString>::new();
         let mut i = 0;
-        let order = match json.endianness {
+        let order = match json.is_big_endian {
             true => bytestream::ByteOrder::BigEndian,
             false => bytestream::ByteOrder::LittleEndian,
         };

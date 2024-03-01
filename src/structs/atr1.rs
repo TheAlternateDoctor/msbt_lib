@@ -6,8 +6,8 @@ use bytestream::{ByteOrder, StreamReader};
 #[derive(Debug, Clone)]
 pub struct ATR1{ // Not enough data, since only Rhythm Heaven Megamix has been used for research.
     magic: Vec<u8>,
-    section_size: u32,
-    string_amount:u64
+    pub section_size: u32,
+    pub string_amount:u64
 }
 
 impl ATR1{

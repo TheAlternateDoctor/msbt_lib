@@ -12,7 +12,8 @@ pub struct MSBT{
     lbl1: LBL1,
     atr1: ATR1,
     txt2: TXT2,
-    pub endianness: bytestream::ByteOrder
+    pub endianness: bytestream::ByteOrder,
+    pub has_attributes: bool
 }
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -27,13 +28,18 @@ pub fn from_binary<R: Read+Seek>(buffer: &mut R) -> Result<MSBT> {
     let byte_order = if header.endianness {ByteOrder::BigEndian} else {ByteOrder::LittleEndian};
     let lbl1 = LBL1::read_from(buffer, byte_order)?;
     let atr1 = ATR1::read_from(buffer, byte_order)?;
+    let mut has_attributes = true;
+    if atr1.section_size == 0 {
+        has_attributes = false;
+    }
     let txt2 = TXT2::read_from(buffer, byte_order)?;
     Ok(MSBT { 
         header: header,
         lbl1: lbl1,
         atr1: atr1,
         txt2: txt2,
-        endianness: byte_order
+        endianness: byte_order,
+        has_attributes: has_attributes
         }
     )
 }
