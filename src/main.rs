@@ -22,9 +22,11 @@ struct SerMsbt {
 
 fn main() -> ::msbt::Result<()> {
     let cli = Args::parse();
-    let extension = get_extension_from_filename(&cli.filename.clone()).unwrap().to_lowercase();
-    let binding = cli.filename.clone();
-    let filename = get_filename(&binding).unwrap();
+    let arg_filename = cli.filename.clone();
+    let path = Path::new(&arg_filename);
+    let extension = path.extension().unwrap().to_str().unwrap().to_lowercase();
+    let filename = path.file_stem().unwrap().to_str().unwrap();
+    let filepath = path.parent().unwrap();
     let mut file = File::open(cli.filename)?;
     if extension == "msbt" {
         let mut output_map = HashMap::new();
@@ -41,7 +43,7 @@ fn main() -> ::msbt::Result<()> {
         };
         let msbt_json = SerMsbt{is_big_endian: order, has_attributes:msbt.has_attributes, strings: output_map};
         let serialized = toml::ser::to_string_pretty(&msbt_json).unwrap();
-        let mut result = File::create(filename.to_owned()+".toml")?;
+        let mut result = File::create(filepath.join(filename.to_owned()+".toml"))?;
         result.write(serialized.as_bytes())?;
     } else if extension == "toml" {
         let mut toml_string = "".to_owned();
@@ -61,7 +63,7 @@ fn main() -> ::msbt::Result<()> {
         }
         println!("Parsed {} string(s).", strings.len());
         let new_msbt = msbt::to_binary(strings, order)?;
-        let mut result = File::create(filename.to_owned()+".msbt")?;
+        let mut result = File::create(filepath.join(filename.to_owned()+".msbt"))?;
         result.write(&new_msbt)?;
     }
     
@@ -79,15 +81,4 @@ fn main() -> ::msbt::Result<()> {
     // let raw_code = ::msbt::structs::TXT2::convert_control_code_close(&code, bytestream::ByteOrder::LittleEndian);
     // println!("{:02X?}", raw_code);
     Ok(())
-}
-
-fn get_extension_from_filename(filename: &str) -> Option<&str> {
-    Path::new(filename)
-        .extension()
-        .and_then(OsStr::to_str)
-}
-fn get_filename(filename: &str) -> Option<&str> {
-    Path::new(filename)
-        .file_stem()
-        .and_then(OsStr::to_str)
 }
