@@ -23,7 +23,7 @@ jobs:
     - uses: actions/upload-artifact@v1
       with:
         name: msbdiff-linux
-        path: ${{runner.workspace}}/msbt_lib/target/debug/msbdiff
+        path: ${{runner.workspace}}/msbt_lib/msbt_lib/target/debug/msbdiff
   windows:
     name: Windows
     runs-on: windows-latest
@@ -37,7 +37,7 @@ jobs:
     - uses: actions/upload-artifact@v1
       with:
         name: msbdiff-windows
-        path: ${{runner.workspace}}/msbt_lib/target/debug/msbdiff.exe
+        path: ${{runner.workspace}}/msbt_lib/msbt_lib/target/debug/msbdiff.exe
   macos:
     name: Mac
     runs-on: macos-latest
@@ -51,4 +51,4 @@ jobs:
     - uses: actions/upload-artifact@v1
       with:
         name: msbdiff-mac
-        path: ${{runner.workspace}}/msbt_lib/target/debug/msbdiff
+        path: ${{runner.workspace}}/msbt_lib/msbt_lib/target/debug/msbdiff
