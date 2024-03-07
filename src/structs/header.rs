@@ -6,8 +6,9 @@ use crate::error::{Error, Result};
 pub struct Header{
     magic: Vec<u8>,
     pub endianness: bool,
-    unk1: u16,
-    unk2: u16, //Version? Always 01 03
+    unk1: u16, // ??? Always 0
+    encoding: u8, // Message encoding (0=UTF-8, 1=UTF-16, 2=UTF-32)
+    version: u8, // Version? Always 03
     pub section_amount: u16,
     unk3: u16,
     filesize: u32,
@@ -37,7 +38,8 @@ impl Header{
             magic: magic,
             endianness: endianness_bool,
             unk1: u16::read_from(buffer, endianness)?,
-            unk2: u16::read_from(buffer, endianness)?,
+            encoding: u8::read_from(buffer, endianness)?,
+            version: u8::read_from(buffer, endianness)?,
             section_amount: u16::read_from(buffer, endianness)?,
             unk3: u16::read_from(buffer, endianness)?,
             filesize: u32::read_from(buffer, endianness)?,
