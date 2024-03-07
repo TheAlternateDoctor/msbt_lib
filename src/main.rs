@@ -14,7 +14,6 @@ mod diff_utils;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Command
     #[arg(value_enum)]
     action: Actions,
 
@@ -26,9 +25,13 @@ struct Args {
 }
 #[derive(ValueEnum, Clone, Debug)]
 enum Actions {
+    /// Converts an MSBT to TOML.
     EXTRACT,
+    /// Converts a TOML to MSBT.
     CREATE,
+    /// Creates a diff file between <ORIGINAL> and all the files in [EDITED].
     DIFF,
+    /// Applies a diff file to an MSBT or TOML file.
     PATCH,
 }
 
