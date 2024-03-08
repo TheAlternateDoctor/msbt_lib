@@ -433,7 +433,7 @@ impl TXT2{
                     control_string += " ";
                     for code in control_code.params{
                         control_string += &format!("{code:02X}");
-                        control_string += ".";
+                        control_string += "_";
                     }
                     control_string.truncate(control_string.len()-1);
                 }
@@ -563,7 +563,7 @@ impl TXT2{
 
                 if bare_content.len() > 2{
                     control_code.params_size = ((bare_content[2].len()+1)/3) as u16;
-                    for byte in bare_content[2].split('.').collect::<Vec<&str>>() {
+                    for byte in bare_content[2].split('_').collect::<Vec<&str>>() {
                         control_code.params.push(u8::from_str_radix(byte, 16).unwrap());
                     }
                 } else {
