@@ -1,13 +1,15 @@
-use std::{collections::{HashMap, VecDeque}, io::{Read, Seek, SeekFrom}, iter::Map, ptr::null, str::Matches};
+use std::collections::VecDeque;
+use std::io::{Read, Seek, SeekFrom};
 use bytestream::{ByteOrder, StreamReader};
-use regex::{Regex, Match};
-use crate::{error::{Error, Result}, msbt::MSBTString};
+use regex::Regex;
+use crate::error::{Error, Result};
+use crate::msbt::MSBTString;
 
 #[derive(Debug, Clone)]
 pub struct TXT2{
-    magic: Vec::<u8>,
-    section_size: u32,
-    string_amount: u32,
+    _magic: Vec::<u8>,
+    _section_size: u32,
+    _string_amount: u32,
     pub offsets: Vec<u32>,
     pub strings: Vec<Vec<u8>>
 }
@@ -305,9 +307,9 @@ impl TXT2{
         let strings = Self::get_strings(buffer, order, offsets.clone(), block_start+0x10)?;
         println!("Extracted strings.");
         Ok(TXT2{
-            magic: magic,
-            section_size: section_size,
-            string_amount: string_amount,
+            _magic: magic,
+            _section_size: section_size,
+            _string_amount: string_amount,
             offsets: offsets,
             strings: strings,
         })

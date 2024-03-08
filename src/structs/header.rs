@@ -4,14 +4,14 @@ use crate::error::{Error, Result};
 
 #[derive(Debug, Clone)]
 pub struct Header{
-    magic: Vec<u8>,
+    _magic: Vec<u8>,
     pub endianness: bool,
-    unk1: u16, // ??? Always 0
-    encoding: u8, // Message encoding (0=UTF-8, 1=UTF-16, 2=UTF-32)
-    version: u8, // Version? Always 03
+    _unk1: u16, // ??? Always 0
+    _encoding: u8, // Message encoding (0=UTF-8, 1=UTF-16, 2=UTF-32)
+    _version: u8, // Version? Always 03
     pub section_amount: u16,
-    unk3: u16,
-    filesize: u32,
+    _unk3: u16,
+    _filesize: u32,
 }
 
 impl Header{
@@ -35,21 +35,20 @@ impl Header{
         buffer.seek(SeekFrom::Current(10))?;
         println!("Extracted header.");
         Ok(Header{
-            magic: magic,
+            _magic: magic,
             endianness: endianness_bool,
-            unk1: u16::read_from(buffer, endianness)?,
-            encoding: u8::read_from(buffer, endianness)?,
-            version: u8::read_from(buffer, endianness)?,
+            _unk1: u16::read_from(buffer, endianness)?,
+            _encoding: u8::read_from(buffer, endianness)?,
+            _version: u8::read_from(buffer, endianness)?,
             section_amount: u16::read_from(buffer, endianness)?,
-            unk3: u16::read_from(buffer, endianness)?,
-            filesize: u32::read_from(buffer, endianness)?,
+            _unk3: u16::read_from(buffer, endianness)?,
+            _filesize: u32::read_from(buffer, endianness)?,
         })
     }
 
     pub fn write_binary(section_amount: u16,section_sizes: u32, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
         println!("Formatting header...");
         let mut result = Vec::<u8>::new();
-        let section_size = 8 as u32;
         //binary tiem
         result.append(&mut b"MsgStdBn".to_vec());
         match order {

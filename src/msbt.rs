@@ -8,9 +8,9 @@ use crate::error::Result;
 
 #[derive(Clone)]
 pub struct MSBT{
-    header: Header,
+    _header: Header,
     lbl1: LBL1,
-    atr1: ATR1,
+    _atr1: ATR1,
     txt2: TXT2,
     pub endianness: bytestream::ByteOrder,
     pub has_attributes: bool
@@ -34,9 +34,9 @@ pub fn from_binary<R: Read+Seek>(buffer: &mut R) -> Result<MSBT> {
     }
     let txt2 = TXT2::read_from(buffer, byte_order)?;
     Ok(MSBT { 
-        header: header,
+        _header: header,
         lbl1: lbl1,
-        atr1: atr1,
+        _atr1: atr1,
         txt2: txt2,
         endianness: byte_order,
         has_attributes: has_attributes

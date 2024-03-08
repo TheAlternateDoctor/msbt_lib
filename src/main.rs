@@ -1,10 +1,10 @@
-use std::{
-    collections::HashMap, convert, ffi::OsStr, fs::{self, File}, io::{self, BufRead, Read, Write}, path::Path, string
-};
+use std::collections::HashMap;
+use std::fs::{self, File};
+use std::io::{self, BufRead, Read, Write};
+use std::path::Path;
 
 use diff_utils::convert_diff;
-use ::msbt::msbt::{MSBTString, MSBT};
-use bytestream::ByteOrder;
+use ::msbt::msbt::MSBTString;
 use clap::{Parser, ValueEnum};
 use msbt::msbt;
 use serde::{Deserialize, Serialize};
@@ -94,7 +94,7 @@ fn create_msbt_args(args: Args) -> ::msbt::Result<()> {
     let path = Path::new(&arg_filename);
     let filename = path.file_stem().unwrap().to_str().unwrap();
     let filepath = path.parent().unwrap();
-    let mut file = File::open(args.original)?;
+    let file = File::open(args.original)?;
     let toml = get_toml(file)?;
     let strings = get_strings_toml(&toml)?;
     let order = get_endianness_toml(&toml)?;
@@ -117,12 +117,13 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
     let arg_filename = args.original.clone();
     let path = Path::new(&arg_filename);
     let filename = path.file_stem().unwrap().to_str().unwrap();
+    let filepath = path.parent().unwrap();
     let extension = path.extension().unwrap().to_str().unwrap().to_lowercase();
 
     //Getting original strings...
-    let mut orig_strings = Vec::<MSBTString>::new();
-    let mut hash;
-    let mut endianness;
+    let orig_strings;
+    let hash;
+    let endianness;
     if extension == "msbt" {
         let bytes = fs::read(args.original.clone()).unwrap();
         hash = sha256::digest(&bytes);
@@ -141,7 +142,7 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
     //Getting edited strings...
     let mut edited_strings = Vec::<Vec<MSBTString>>::new();
     for path_edited in args.edited {
-        let mut edited_string_single = Vec::<MSBTString>::new();
+        let edited_string_single;
         let arg_filename = path_edited.clone();
         let path = Path::new(&arg_filename);
         let extension = path.extension().unwrap().to_str().unwrap().to_lowercase();
@@ -159,7 +160,8 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
     let added_strings = diff_utils::get_added(orig_strings.clone(), edited_strings.clone());
     let deleted_strings = diff_utils::get_deleted(orig_strings.clone(), edited_strings.clone());
     let edited_strings = diff_utils::get_edited(orig_strings, edited_strings);
-    let mut diff_file = File::create(filename.to_owned()+".msbd.txt")?;
+
+    let mut diff_file = File::create(filepath.join(filename.to_owned()+".msbd.txt"))?;
 
     //Writing file
     let _ = diff_file.write((filename.to_owned()+"\n").as_bytes());
@@ -203,7 +205,7 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
 fn patch_msbt(args: Args) -> ::msbt::Result<()> {
     let diff_file = File::open(args.edited.get(0).unwrap())?;
     let mut lines = io::BufReader::new(diff_file).lines();
-    let final_filename = lines.next().unwrap()?;
+    let _final_filename = lines.next().unwrap()?;
     let patch_name = lines.next().unwrap()?;
     let sha256 = lines.next().unwrap()?;
     if sha256 != "\n" {
@@ -219,7 +221,7 @@ fn patch_msbt(args: Args) -> ::msbt::Result<()> {
     let path = Path::new(&arg_filename);
     let extension = path.extension().unwrap().to_str().unwrap().to_lowercase();
     if extension == "msbt" {
-        let filename = path.file_stem().unwrap().to_str().unwrap();
+        let _filename = path.file_stem().unwrap().to_str().unwrap();
         let filepath = path.parent().unwrap();
         let mut file = File::open(args.original)?;
 
@@ -228,7 +230,10 @@ fn patch_msbt(args: Args) -> ::msbt::Result<()> {
         
         let diff = convert_diff(lines).unwrap();
         let new_msbt = diff_utils::patch_diff(diff, strings, msbt.endianness)?;
-        create_msbt(patch_name+".msbt", new_msbt, msbt.endianness);
+        match create_msbt(filepath.join(patch_name.to_owned() + ".msbt").into_os_string().into_string().unwrap(), new_msbt, msbt.endianness){
+            Ok(_) => {},
+            Err(_) => panic!("Error writing MSBT file."),
+        };
     }
     Ok(())
 }
@@ -240,8 +245,6 @@ fn get_toml(mut file: File) -> ::msbt::Result<SerMsbt>{
 }
 
 fn get_endianness_toml(toml: &SerMsbt) -> ::msbt::Result<bytestream::ByteOrder> {
-    let mut strings = Vec::<MSBTString>::new();
-    let mut i = 0;
     match toml.is_big_endian {
         true => Ok(bytestream::ByteOrder::BigEndian),
         false => Ok(bytestream::ByteOrder::LittleEndian),

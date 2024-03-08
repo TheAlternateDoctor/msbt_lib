@@ -1,4 +1,4 @@
-use std::{fs::File, io::{self, BufRead, BufReader, Lines}, string, thread::current};
+use std::{fs::File, io::{BufReader, Lines}};
 
 use crate::msbt::MSBTString;
 

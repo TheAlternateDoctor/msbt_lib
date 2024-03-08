@@ -4,9 +4,9 @@ use crate::{error::{Error, Result}, msbt::MSBTString};
 
 #[derive(Debug, Clone)]
 pub struct LBL1{
-    magic: Vec::<u8>,
-    section_size: u32,
-    block_amount: u32,
+    _magic: Vec::<u8>,
+    _section_size: u32,
+    _block_amount: u32,
     pub offsets: Vec<LabelDef>,
     pub labels: Vec<Label>
 }
@@ -44,9 +44,9 @@ impl LBL1 {
         buffer.seek(SeekFrom::Start(block_start+0x10+section_size as u64+(0x10-(section_size%0x10)) as u64))?;
         println!("Extracted labels.");
         Ok(LBL1{
-            magic: magic,
-            section_size: section_size,
-            block_amount: block_amount,
+            _magic: magic,
+            _section_size: section_size,
+            _block_amount: block_amount,
             offsets: label_defs,
             labels: labels
         })
@@ -126,11 +126,9 @@ impl LBL1 {
         label_defs.insert(current_hash as usize, label_def);
         //Finally, we make the raw offset array
         let mut empties = 0u8;
-        let mut latest_def= label_defs.get(0).unwrap();
         for i in 0..101{
             let label_def = label_defs.get(i).unwrap();
             if label_def.offset != 0 {
-                latest_def = label_defs.get(i).unwrap();
                 for _i in 0..empties{
                     match order {
                         ByteOrder::BigEndian => {
