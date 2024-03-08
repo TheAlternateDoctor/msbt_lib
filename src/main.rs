@@ -17,6 +17,10 @@ struct Args {
     #[arg(value_enum)]
     action: Actions,
 
+    #[arg(short, long, num_args(1), required(false))]
+    /// Specify an output file.
+    output: Option<String>,
+
     /// File to extract, or to use as a base for diffing.
     original: String,
 
@@ -80,7 +84,10 @@ fn extract_msbt(args: Args) -> ::msbt::Result<()> {
             strings: output_map,
         };
         let serialized = toml::ser::to_string_pretty(&msbt_json).unwrap();
-        let mut result = File::create(filepath.join(filename.to_owned() + ".toml"))?;
+        
+        
+        let output_path = if args.output.is_some(){args.output.unwrap()} else {filepath.join(filename.to_owned() + ".toml").into_os_string().into_string().unwrap()};
+        let mut result = File::create(output_path)?;
         result.write_all(serialized.as_bytes())?;
         Ok(())
     } else {
@@ -97,7 +104,8 @@ fn create_msbt_args(args: Args) -> ::msbt::Result<()> {
     let toml = get_toml(file)?;
     let strings = get_strings_toml(&toml)?;
     let order = get_endianness_toml(&toml)?;
-    let _ = create_msbt(filepath.join(filename.to_owned() + ".msbt").into_os_string().into_string().unwrap(), strings, order);
+    let output_path = if args.output.is_some(){args.output.unwrap()} else {filepath.join(filename.to_owned() + ".msbt").into_os_string().into_string().unwrap()};
+    let _ = create_msbt(output_path, strings, order);
     Ok(())
 }
 
@@ -159,7 +167,8 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
     let deleted_strings = diff_utils::get_deleted(orig_strings.clone(), edited_strings.clone());
     let edited_strings = diff_utils::get_edited(orig_strings, edited_strings);
 
-    let mut diff_file = File::create(filepath.join(filename.to_owned()+".msbd.txt"))?;
+    let output_path = if args.output.is_some(){args.output.unwrap()} else {filepath.join(filename.to_owned() + ".msbd.txt").into_os_string().into_string().unwrap()};
+    let mut diff_file = File::create(output_path)?;
 
     //Writing file
     let _ = diff_file.write((filename.to_owned()+"\n").as_bytes());
@@ -228,7 +237,9 @@ fn patch_msbt(args: Args) -> ::msbt::Result<()> {
         
         let diff = convert_diff(lines).unwrap();
         let new_msbt = diff_utils::patch_diff(diff, strings, msbt.endianness)?;
-        match create_msbt(filepath.join(patch_name.to_owned() + ".msbt").into_os_string().into_string().unwrap(), new_msbt, msbt.endianness){
+
+        let output_path = if args.output.is_some(){args.output.unwrap()} else {filepath.join(patch_name.to_owned() + ".msbt").into_os_string().into_string().unwrap()};
+        match create_msbt(output_path, new_msbt, msbt.endianness){
             Ok(_) => {},
             Err(_) => panic!("Error writing MSBT file."),
         };
