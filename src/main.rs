@@ -8,7 +8,6 @@ use ::msbt::msbt::MSBTString;
 use clap::{Parser, ValueEnum};
 use msbt::msbt;
 use serde::{Deserialize, Serialize};
-use toml;
 
 mod diff_utils;
 
@@ -27,13 +26,13 @@ struct Args {
 #[derive(ValueEnum, Clone, Debug)]
 enum Actions {
     /// Converts an MSBT to TOML.
-    EXTRACT,
+    Extract,
     /// Converts a TOML to MSBT.
-    CREATE,
+    Create,
     /// Creates a diff file between <ORIGINAL> and all the files in [EDITED].
-    DIFF,
+    Diff,
     /// Applies a diff file to an MSBT or TOML file.
-    PATCH,
+    Patch,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -46,10 +45,10 @@ struct SerMsbt {
 fn main() -> ::msbt::Result<()> {
     let args = Args::parse();
     match args.action {
-        Actions::EXTRACT => return extract_msbt(args),
-        Actions::CREATE => return create_msbt_args(args),
-        Actions::DIFF => return diff_msbt(args),
-        Actions::PATCH => return patch_msbt(args),
+        Actions::Extract => extract_msbt(args),
+        Actions::Create => create_msbt_args(args),
+        Actions::Diff => diff_msbt(args),
+        Actions::Patch => patch_msbt(args),
     }
 }
 
@@ -82,7 +81,7 @@ fn extract_msbt(args: Args) -> ::msbt::Result<()> {
         };
         let serialized = toml::ser::to_string_pretty(&msbt_json).unwrap();
         let mut result = File::create(filepath.join(filename.to_owned() + ".toml"))?;
-        result.write(serialized.as_bytes())?;
+        result.write_all(serialized.as_bytes())?;
         Ok(())
     } else {
         Err(::msbt::Error::NotMSBT)
@@ -105,7 +104,7 @@ fn create_msbt_args(args: Args) -> ::msbt::Result<()> {
 fn create_msbt(filename: String, msbt: Vec<MSBTString>, order: bytestream::ByteOrder) -> ::msbt::Result<()>{
     let new_msbt = msbt::to_binary(msbt, order)?;
     let mut result = File::create(filename)?;
-    result.write(&new_msbt)?;
+    result.write_all(&new_msbt)?;
     Ok(())
 }
 
@@ -120,13 +119,13 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
     let filepath = path.parent().unwrap();
     let extension = path.extension().unwrap().to_str().unwrap().to_lowercase();
 
-    //Getting original strings...
+    //Getting original strings....
     let orig_strings;
     let hash;
     let endianness;
     if extension == "msbt" {
         let bytes = fs::read(args.original.clone()).unwrap();
-        hash = sha256::digest(&bytes);
+        hash = sha256::digest(bytes);
         let mut file = File::open(args.original)?;
         let msbt = msbt::from_binary(&mut file)?;
         endianness = msbt.endianness;
@@ -142,19 +141,18 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
     //Getting edited strings...
     let mut edited_strings = Vec::<Vec<MSBTString>>::new();
     for path_edited in args.edited {
-        let edited_string_single;
         let arg_filename = path_edited.clone();
         let path = Path::new(&arg_filename);
         let extension = path.extension().unwrap().to_str().unwrap().to_lowercase();
-        if extension == "msbt" {
+        let edited_string_single = if extension == "msbt" {
             let mut file = File::open(path_edited)?;
             let msbt = msbt::from_binary(&mut file)?;
-            edited_string_single = msbt::get_strings(msbt.clone())?;
+            msbt::get_strings(msbt.clone())?
         } else { //Just assume it's toml
             let file = File::open(path_edited)?;
             let toml = get_toml(file)?;
-            edited_string_single = get_strings_toml(&toml)?;
-        }
+            get_strings_toml(&toml)?
+        };
         edited_strings.push(edited_string_single);
     }
     let added_strings = diff_utils::get_added(orig_strings.clone(), edited_strings.clone());
@@ -166,7 +164,7 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
     //Writing file
     let _ = diff_file.write((filename.to_owned()+"\n").as_bytes());
     let _ = diff_file.write((filename.to_owned()+"\n").as_bytes());
-    if hash != ""{
+    if !hash.is_empty(){
         let _ = diff_file.write((hash+"\n").as_bytes());
     }
     let _ = diff_file.write("\n".as_bytes());
@@ -177,7 +175,7 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
         let _ = diff_file.write(label.as_bytes());
         let mut parsed_string = ::msbt::structs::TXT2::parse_binary(string.string, endianness);
         parsed_string.truncate(parsed_string.len() - 1);
-        parsed_string = parsed_string.replace("\n", "\n>");
+        parsed_string = parsed_string.replace('\n', "\n>");
         let _ = diff_file.write((">".to_owned()+&parsed_string+"\n").as_bytes());
         let _ = diff_file.write("\n".as_bytes());
     }
@@ -195,7 +193,7 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
         let _ = diff_file.write(label.as_bytes());
         let mut parsed_string = ::msbt::structs::TXT2::parse_binary(string.string, endianness);
         parsed_string.truncate(parsed_string.len() - 1);
-        parsed_string = parsed_string.replace("\n", "\n>");
+        parsed_string = parsed_string.replace('\n', "\n>");
         let _ = diff_file.write((">".to_owned()+&parsed_string+"\n").as_bytes());
         let _ = diff_file.write("\n".as_bytes());
     }
@@ -203,14 +201,14 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
 }
 
 fn patch_msbt(args: Args) -> ::msbt::Result<()> {
-    let diff_file = File::open(args.edited.get(0).unwrap())?;
+    let diff_file = File::open(args.edited.first().unwrap())?;
     let mut lines = io::BufReader::new(diff_file).lines();
     let _final_filename = lines.next().unwrap()?;
     let patch_name = lines.next().unwrap()?;
     let sha256 = lines.next().unwrap()?;
     if sha256 != "\n" {
         let bytes = fs::read(args.original.clone()).unwrap();
-        let hash = sha256::digest(&bytes);
+        let hash = sha256::digest(bytes);
         if hash != sha256 {
             return Err(::msbt::Error::BadHash);
         }
@@ -253,20 +251,18 @@ fn get_endianness_toml(toml: &SerMsbt) -> ::msbt::Result<bytestream::ByteOrder> 
 
 fn get_strings_toml(toml: &SerMsbt) -> ::msbt::Result<Vec<MSBTString>>{
     let mut strings = Vec::<MSBTString>::new();
-    let mut i = 0;
     let order = match toml.is_big_endian {
         true => bytestream::ByteOrder::BigEndian,
         false => bytestream::ByteOrder::LittleEndian,
     };
     println!("Parsing {} string(s)...", toml.strings.len());
-    for (label, string) in &toml.strings {
+    for (i, (label, string)) in toml.strings.iter().enumerate() {
         let corrected_string = string.to_owned() + "\0";
         strings.push(MSBTString {
-            index: i,
+            index: i as u32,
             label: label.to_string(),
             string: ::msbt::structs::TXT2::parse_string(&corrected_string, order).unwrap(),
         });
-        i += 1;
     }
     println!("Parsed {} string(s).", strings.len());
     Ok(strings)

@@ -310,8 +310,8 @@ impl TXT2{
             _magic: magic,
             _section_size: section_size,
             _string_amount: string_amount,
-            offsets: offsets,
-            strings: strings,
+            offsets,
+            strings,
         })
     }
 
@@ -351,10 +351,10 @@ impl TXT2{
         new_strings.sort_by(|a, b| a.index.cmp(&b.index));
         //First offset
         let mut last_offset = msbt_strings.len() as u32*4+4;
-        let mut section_size = 4 as u32; //amount of strings
+        let mut section_size = 4_u32; //amount of strings
         offsets.push(last_offset);
         for string in new_strings{
-            last_offset = last_offset+string.string.len() as u32;
+            last_offset += string.string.len() as u32;
             section_size += string.string.len() as u32+4;
             strings.push(string.string);
             offsets.push(last_offset);
@@ -463,36 +463,36 @@ impl TXT2{
                 result.push_str(&Self::search_escape_code(char));
             }
         }
-        return result;
+        result
     }
 
     fn read_char(char_temp: [u8;2], order: bytestream::ByteOrder) -> u16{
         match order {
-            ByteOrder::BigEndian => return u16::from_be_bytes(char_temp),
-            ByteOrder::LittleEndian => return u16::from_le_bytes(char_temp),
+            ByteOrder::BigEndian => u16::from_be_bytes(char_temp),
+            ByteOrder::LittleEndian => u16::from_le_bytes(char_temp),
         }
     }
 
     fn search_escape_code(char: u16) -> String {
         if char >= 0xE000 {
             let result = ESCAPE_CODES_3DS.into_iter().find(|&x| x.1 == char);
-            if !result.is_none(){
+            if result.is_some(){
                 return format!("[!{}]",result.unwrap().0);
             }
             let result = ESCAPE_CODES_SWITCH.into_iter().find(|&x| x.1 == char);
-            if !result.is_none(){
+            if result.is_some(){
                 return format!("[!{}]",result.unwrap().0);
             }
             let result = ESCAPE_CODES_WII.into_iter().find(|&x| x.1 == char);
-            if !result.is_none(){
+            if result.is_some(){
                 return format!("[!{}]",result.unwrap().0);
             }
             let result = ESCAPE_CODES_DS.into_iter().find(|&x| x.1 == char);
-            if !result.is_none(){
+            if result.is_some(){
                 return format!("[!{}]",result.unwrap().0);
             }
         }
-        return std::char::from_u32(char as u32).unwrap().to_string();
+        std::char::from_u32(char as u32).unwrap().to_string()
     }
 
     fn convert_escape_code(code: &str, order: bytestream::ByteOrder) -> Vec<u8> {
@@ -502,37 +502,37 @@ impl TXT2{
         bare_code.remove(0);
         if bare_code.contains("3DS") {
             let result = ESCAPE_CODES_3DS.into_iter().find(|&x| x.0 == bare_code);
-            if !result.is_none(){
+            if let Some(result) = result{
                 match order{
-                    ByteOrder::BigEndian => return result.unwrap().1.to_be_bytes().to_vec(),
-                    ByteOrder::LittleEndian => return result.unwrap().1.to_le_bytes().to_vec(),
+                    ByteOrder::BigEndian => return result.1.to_be_bytes().to_vec(),
+                    ByteOrder::LittleEndian => return result.1.to_le_bytes().to_vec(),
                 }
             }
         }
         if bare_code.contains("Switch") {
             let result = ESCAPE_CODES_SWITCH.into_iter().find(|&x| x.0 == bare_code);
-            if !result.is_none(){
+            if let Some(result) = result{
                 match order{
-                    ByteOrder::BigEndian => return result.unwrap().1.to_be_bytes().to_vec(),
-                    ByteOrder::LittleEndian => return result.unwrap().1.to_le_bytes().to_vec(),
+                    ByteOrder::BigEndian => return result.1.to_be_bytes().to_vec(),
+                    ByteOrder::LittleEndian => return result.1.to_le_bytes().to_vec(),
                 }
             }
         }
         if bare_code.contains("Wii") {
             let result = ESCAPE_CODES_WII.into_iter().find(|&x| x.0 == bare_code);
-            if !result.is_none(){
+            if let Some(result) = result{
                 match order{
-                    ByteOrder::BigEndian => return result.unwrap().1.to_be_bytes().to_vec(),
-                    ByteOrder::LittleEndian => return result.unwrap().1.to_le_bytes().to_vec(),
+                    ByteOrder::BigEndian => return result.1.to_be_bytes().to_vec(),
+                    ByteOrder::LittleEndian => return result.1.to_le_bytes().to_vec(),
                 }
             }
         }
         if bare_code.contains("DS") {
             let result = ESCAPE_CODES_DS.into_iter().find(|&x| x.0 == bare_code);
-            if !result.is_none(){
+            if let Some(result) = result{
                 match order{
-                    ByteOrder::BigEndian => return result.unwrap().1.to_be_bytes().to_vec(),
-                    ByteOrder::LittleEndian => return result.unwrap().1.to_le_bytes().to_vec(),
+                    ByteOrder::BigEndian => return result.1.to_be_bytes().to_vec(),
+                    ByteOrder::LittleEndian => return result.1.to_le_bytes().to_vec(),
                 }
             }
         }
@@ -540,7 +540,7 @@ impl TXT2{
         for char in code.chars(){
             raw_bytes.append(&mut Self::convert_char(char, order));
         }
-        return raw_bytes;
+        raw_bytes
     }
 
     fn convert_control_code(code: &str, order: bytestream::ByteOrder) -> Vec<u8>{
@@ -548,7 +548,7 @@ impl TXT2{
         let mut bare_code = code.to_string();
         bare_code.remove(0);
         bare_code.pop();
-        let bare_content = bare_code.split(" ").collect::<Vec<&str>>();
+        let bare_content = bare_code.split(' ').collect::<Vec<&str>>();
         match bare_content[0] {
             "RawCmd" =>{
                 let mut control_code = ControlCode{ 
@@ -557,14 +557,14 @@ impl TXT2{
                     params_size: 0, 
                     params: Vec::<u8>::new() 
                 };
-                let code_def = bare_content[1].split(".").collect::<Vec<&str>>();
+                let code_def = bare_content[1].split('.').collect::<Vec<&str>>();
                 control_code.tag_group = code_def[0].parse().unwrap();
                 control_code.tag_type = code_def[1].parse().unwrap();
 
                 if bare_content.len() > 2{
                     control_code.params_size = ((bare_content[2].len()+1)/3) as u16;
-                    for byte in bare_content[2].split(".").collect::<Vec<&str>>() {
-                        control_code.params.push(u8::from_str_radix(&byte, 16).unwrap());
+                    for byte in bare_content[2].split('.').collect::<Vec<&str>>() {
+                        control_code.params.push(u8::from_str_radix(byte, 16).unwrap());
                     }
                 } else {
                     control_code.params_size = 0u16;
@@ -593,7 +593,7 @@ impl TXT2{
                 }
             }
         }
-        return raw_bytes;
+        raw_bytes
     }
 
     fn convert_control_code_close(code: &str, order: bytestream::ByteOrder) -> Vec<u8>{
@@ -602,10 +602,10 @@ impl TXT2{
         bare_code.remove(0);
         bare_code.remove(0);
         bare_code.pop();
-        let bare_content = bare_code.split(" ").collect::<Vec<&str>>();
+        let bare_content = bare_code.split(' ').collect::<Vec<&str>>();
         match bare_content[0]{
             "RawCmd" => {
-                let code_def = bare_content[1].split(".").collect::<Vec<&str>>();
+                let code_def = bare_content[1].split('.').collect::<Vec<&str>>();
                 let tag_group: u16 = code_def[0].parse().unwrap();
                 let tag_type: u16 = code_def[1].parse().unwrap();
 
@@ -628,7 +628,7 @@ impl TXT2{
                 }
             }
         }
-        return raw_bytes;
+        raw_bytes
     }
 
     fn convert_char(char: char, order:bytestream::ByteOrder) -> Vec<u8> {
@@ -636,10 +636,10 @@ impl TXT2{
         let mut char_utf16 = [0; 1];
         char.encode_utf16(&mut char_utf16);
         match order{
-            ByteOrder::LittleEndian => result.append(&mut char_utf16.into_iter().map(|c| c.to_le_bytes()).flatten().collect()),
-            ByteOrder::BigEndian => result.append(&mut char_utf16.into_iter().map(|c| c.to_be_bytes()).flatten().collect()),
+            ByteOrder::LittleEndian => result.append(&mut char_utf16.into_iter().flat_map(|c| c.to_le_bytes()).collect()),
+            ByteOrder::BigEndian => result.append(&mut char_utf16.into_iter().flat_map(|c| c.to_be_bytes()).collect()),
         }
-        return result;
+        result
     }
 
     pub fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
@@ -665,8 +665,8 @@ impl TXT2{
         for code in codes{
             for _i in pos..code.0{
                 result.append(&mut Self::convert_char(char_array.pop_front().unwrap(), order));
-                pos += 1;
             }
+            pos = code.0;
             result.append(&mut code.1.clone());
             let mut char = '[';
             while char != ']' {

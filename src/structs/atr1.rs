@@ -29,15 +29,15 @@ impl ATR1{
         println!("Extracted attributes.");
         Ok(ATR1 { 
             _magic: magic,
-            section_size: section_size,
-            string_amount: string_amount
+            section_size,
+            string_amount
         })
     }
 
     pub fn write_binary(msbt_strings: Vec<MSBTString>, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
         println!("Formatting attributes...");
         let mut result = Vec::<u8>::new();
-        let section_size = 8 as u32;
+        let section_size = 8_u32;
         //binary tiem
         result.append(&mut b"ATR1".to_vec());
         match order {

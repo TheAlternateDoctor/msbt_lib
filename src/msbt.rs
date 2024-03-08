@@ -35,11 +35,11 @@ pub fn from_binary<R: Read+Seek>(buffer: &mut R) -> Result<MSBT> {
     let txt2 = TXT2::read_from(buffer, byte_order)?;
     Ok(MSBT { 
         _header: header,
-        lbl1: lbl1,
+        lbl1,
         _atr1: atr1,
-        txt2: txt2,
+        txt2,
         endianness: byte_order,
-        has_attributes: has_attributes
+        has_attributes
         }
     )
 }
@@ -61,22 +61,21 @@ pub fn add_string_raw(msbt_strings: &mut Vec<MSBTString>, label: String, string:
     let last = msbt_strings.iter().map(|c| c.index).max().unwrap();
     let new_string = MSBTString{
         index: last+1,
-        label: label,
-        string: string
+        label,
+        string
     };
     msbt_strings.push(new_string);
 }
 
 pub fn add_string(msbt_strings: &mut Vec<MSBTString>, label: String, string: String, order: bytestream::ByteOrder) {
     let last = msbt_strings.iter().map(|c| c.index).max().unwrap();
-    let new_string: Vec<u8>;
-    match order {
-        ByteOrder::BigEndian => new_string = string.encode_utf16().into_iter().map(|c| c.to_be_bytes()).flatten().collect(),
-        ByteOrder::LittleEndian => new_string = string.encode_utf16().into_iter().map(|c| c.to_le_bytes()).flatten().collect(),
-    }
+    let new_string: Vec<u8> = match order {
+        ByteOrder::BigEndian => string.encode_utf16().flat_map(|c| c.to_be_bytes()).collect(),
+        ByteOrder::LittleEndian => string.encode_utf16().flat_map(|c| c.to_le_bytes()).collect(),
+    };
     let new_msbt_string = MSBTString{
         index: last+1,
-        label: label,
+        label,
         string: new_string
     };
     msbt_strings.push(new_msbt_string);
@@ -101,15 +100,14 @@ fn delete_string(msbt_strings: &mut Vec<MSBTString>,vec_index: usize){
     }
 }
 
-pub fn edit_string_by_label(msbt_strings: &mut Vec<MSBTString>,label: String, string: String, order: bytestream::ByteOrder){
-    let new_string: Vec<u8>;
-    match order {
-        ByteOrder::BigEndian => new_string = string.encode_utf16().into_iter().map(|c| c.to_be_bytes()).flatten().collect(),
-        ByteOrder::LittleEndian => new_string = string.encode_utf16().into_iter().map(|c| c.to_le_bytes()).flatten().collect(),
-    }
+pub fn edit_string_by_label(msbt_strings: &mut [MSBTString],label: String, string: String, order: bytestream::ByteOrder){
+    let new_string: Vec<u8> = match order {
+        ByteOrder::BigEndian => string.encode_utf16().flat_map(|c| c.to_be_bytes()).collect(),
+        ByteOrder::LittleEndian => string.encode_utf16().flat_map(|c| c.to_le_bytes()).collect(),
+    };
     let vec_index = msbt_strings.iter().position(|s| s.label == label).unwrap();
     let old_index = msbt_strings.get(vec_index).unwrap().index;
-    msbt_strings[vec_index] = MSBTString{ index: old_index, label:label, string:new_string };
+    msbt_strings[vec_index] = MSBTString{ index: old_index, label, string:new_string };
 }
 
 

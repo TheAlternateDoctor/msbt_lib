@@ -48,7 +48,7 @@ impl LBL1 {
             _section_size: section_size,
             _block_amount: block_amount,
             offsets: label_defs,
-            labels: labels
+            labels
         })
     }
 
@@ -59,7 +59,7 @@ impl LBL1 {
             let offset = u32::read_from(buffer, order)?;
             offsets.push(LabelDef {
                 amount: label_amount,
-                offset: offset,
+                offset,
             })
         }
         Ok(offsets)
@@ -76,7 +76,7 @@ impl LBL1 {
                 buffer.read_exact(&mut string)?;
                 let index = u32::read_from(buffer, order)?;
                 labels.push(Label {
-                    size: size,
+                    size,
                     label: String::from_utf8(string.clone())?,
                     string_index: index,
                     hash: Self::calculate_hash(String::from_utf8(string)?) as u8
@@ -177,14 +177,14 @@ impl LBL1 {
             ByteOrder::BigEndian => {
                 result.append(&mut (section_size as u32).to_be_bytes().to_vec());
                 result.append(&mut vec![0,0,0,0,0,0,0,0]);
-                result.append(&mut (101 as u32).to_be_bytes().to_vec());
+                result.append(&mut 101_u32.to_be_bytes().to_vec());
                 result.append(&mut label_defs_raw.clone());
                 result.append(&mut labels_raw.clone());
             }
             ByteOrder::LittleEndian => {
                 result.append(&mut (section_size as u32).to_le_bytes().to_vec());
                 result.append(&mut vec![0,0,0,0,0,0,0,0]);
-                result.append(&mut (101 as u32).to_le_bytes().to_vec());
+                result.append(&mut 101_u32.to_le_bytes().to_vec());
                 result.append(&mut label_defs_raw.clone());
                 result.append(&mut labels_raw.clone());
             }
@@ -203,6 +203,6 @@ impl LBL1 {
         for char in label.as_bytes(){
             hash = hash.wrapping_mul(0x492) + (*char) as u64 ;
         }
-        return (hash & 0xFFFFFFFF) % 101;
+        (hash & 0xFFFFFFFF) % 101
     }
 }
