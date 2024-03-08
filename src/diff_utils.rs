@@ -1,6 +1,4 @@
-use std::{fs::File, io::{self, BufRead, BufReader, Lines}, thread::current};
-
-use msbt::msbt::MSBT;
+use std::{fs::File, io::{self, BufRead, BufReader, Lines}, string, thread::current};
 
 use crate::msbt::MSBTString;
 
@@ -91,4 +89,18 @@ pub fn convert_diff(diff: Lines<BufReader<File>>) -> ::msbt::Result<Vec<StringDi
         }
     }
     Ok(result)
+}
+
+pub fn patch_diff(diff: Vec<StringDiff>, msbt: Vec<MSBTString>, order: bytestream::ByteOrder) -> ::msbt::Result<Vec<MSBTString>>{
+    let mut new_msbt = msbt.clone();
+    for string_diff in diff {
+        let corrected_string = string_diff.string + "\0";
+        match string_diff.state {
+            State::ADDED => ::msbt::msbt::add_string(&mut new_msbt, string_diff.label, corrected_string, order),
+            State::DELETED => ::msbt::msbt::delete_string_by_label(&mut new_msbt, string_diff.label),
+            State::EDITED => ::msbt::msbt::edit_string_by_label(&mut new_msbt, string_diff.label, corrected_string, order),
+            State::NULL => {},
+        }
+    }
+    Ok(new_msbt)
 }

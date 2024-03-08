@@ -47,7 +47,7 @@ fn main() -> ::msbt::Result<()> {
     let args = Args::parse();
     match args.action {
         Actions::EXTRACT => return extract_msbt(args),
-        Actions::CREATE => return create_msbt(args),
+        Actions::CREATE => return create_msbt_args(args),
         Actions::DIFF => return diff_msbt(args),
         Actions::PATCH => return patch_msbt(args),
     }
@@ -89,7 +89,7 @@ fn extract_msbt(args: Args) -> ::msbt::Result<()> {
     }
 }
 
-fn create_msbt(args: Args) -> ::msbt::Result<()> {
+fn create_msbt_args(args: Args) -> ::msbt::Result<()> {
     let arg_filename = args.original.clone();
     let path = Path::new(&arg_filename);
     let filename = path.file_stem().unwrap().to_str().unwrap();
@@ -98,11 +98,20 @@ fn create_msbt(args: Args) -> ::msbt::Result<()> {
     let toml = get_toml(file)?;
     let strings = get_strings_toml(&toml)?;
     let order = get_endianness_toml(&toml)?;
-    let new_msbt = msbt::to_binary(strings, order)?;
-    let mut result = File::create(filepath.join(filename.to_owned() + ".msbt"))?;
+    let _ = create_msbt(filepath.join(filename.to_owned() + ".msbt").into_os_string().into_string().unwrap(), strings, order);
+    Ok(())
+}
+
+fn create_msbt(filename: String, msbt: Vec<MSBTString>, order: bytestream::ByteOrder) -> ::msbt::Result<()>{
+    let new_msbt = msbt::to_binary(msbt, order)?;
+    let mut result = File::create(filename)?;
     result.write(&new_msbt)?;
     Ok(())
 }
+
+// fn create_toml(filename: String, msbt: Vec<MSBTString>, order: bytestream::ByteOrder) -> ::msbt::Result<()>{
+
+// }
 
 fn diff_msbt(args: Args) -> ::msbt::Result<()> {
     let arg_filename = args.original.clone();
@@ -218,6 +227,8 @@ fn patch_msbt(args: Args) -> ::msbt::Result<()> {
         let strings = msbt::get_strings(msbt.clone())?;
         
         let diff = convert_diff(lines).unwrap();
+        let new_msbt = diff_utils::patch_diff(diff, strings, msbt.endianness)?;
+        create_msbt(patch_name+".msbt", new_msbt, msbt.endianness);
     }
     Ok(())
 }

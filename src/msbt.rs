@@ -91,7 +91,6 @@ pub fn delete_string_by_label(msbt_strings: &mut Vec<MSBTString>,label: String){
     let vec_index = msbt_strings.iter().position(|s| s.label == label).unwrap();
     delete_string(msbt_strings, vec_index);
 }
-
 fn delete_string(msbt_strings: &mut Vec<MSBTString>,vec_index: usize){
     let msbt_index = msbt_strings[vec_index].index;
     msbt_strings.remove(vec_index);
@@ -101,6 +100,18 @@ fn delete_string(msbt_strings: &mut Vec<MSBTString>,vec_index: usize){
         }
     }
 }
+
+pub fn edit_string_by_label(msbt_strings: &mut Vec<MSBTString>,label: String, string: String, order: bytestream::ByteOrder){
+    let new_string: Vec<u8>;
+    match order {
+        ByteOrder::BigEndian => new_string = string.encode_utf16().into_iter().map(|c| c.to_be_bytes()).flatten().collect(),
+        ByteOrder::LittleEndian => new_string = string.encode_utf16().into_iter().map(|c| c.to_le_bytes()).flatten().collect(),
+    }
+    let vec_index = msbt_strings.iter().position(|s| s.label == label).unwrap();
+    let old_index = msbt_strings.get(vec_index).unwrap().index;
+    msbt_strings[vec_index] = MSBTString{ index: old_index, label:label, string:new_string };
+}
+
 
 pub fn to_binary(msbt_strings: Vec<MSBTString>, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
     println!("Formatting {} strings to MSBT, {} endian", msbt_strings.len(), match order{
