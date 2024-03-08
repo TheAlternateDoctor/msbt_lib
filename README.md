@@ -4,6 +4,17 @@
 
 A crate that allows manipulating Nintendo's proprietary MSBT format, with a library crate to parse those files.
 
+## Table of contents
+1. [Usage](#usage)
+    1. [Extract](#extract)
+    2. [Create](#create)
+    3. [Diff](#diff)
+    4. [Patch](#patch)
+2. [The MSBD format](#the-msbd-format)
+3. [Control codes](#control-codes)
+4. [Escape codes](#escape-codes)
+
+
 # Usage
 
 MSBTools has 4 different modes of operation:
