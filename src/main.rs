@@ -1,7 +1,8 @@
 use std::{
-    collections::HashMap, convert, ffi::OsStr, fs::{self, File}, io::{Read, Write}, path::Path, string
+    collections::HashMap, convert, ffi::OsStr, fs::{self, File}, io::{self, BufRead, Read, Write}, path::Path, string
 };
 
+use diff_utils::convert_diff;
 use ::msbt::msbt::{MSBTString, MSBT};
 use bytestream::ByteOrder;
 use clap::{Parser, ValueEnum};
@@ -20,7 +21,7 @@ struct Args {
     /// File to extract, or to use as a base for diffing.
     original: String,
 
-    /// Files to use for diffing.
+    /// Files to use for diffing, or diff files to apply.
     edited: Vec<String>,
 }
 #[derive(ValueEnum, Clone, Debug)]
@@ -48,7 +49,7 @@ fn main() -> ::msbt::Result<()> {
         Actions::EXTRACT => return extract_msbt(args),
         Actions::CREATE => return create_msbt(args),
         Actions::DIFF => return diff_msbt(args),
-        Actions::PATCH => todo!(),
+        Actions::PATCH => return patch_msbt(args),
     }
 }
 
@@ -186,6 +187,37 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
         parsed_string = parsed_string.replace("\n", "\n>");
         let _ = diff_file.write((">".to_owned()+&parsed_string+"\n").as_bytes());
         let _ = diff_file.write("\n".as_bytes());
+    }
+    Ok(())
+}
+
+fn patch_msbt(args: Args) -> ::msbt::Result<()> {
+    let diff_file = File::open(args.edited.get(0).unwrap())?;
+    let mut lines = io::BufReader::new(diff_file).lines();
+    let final_filename = lines.next().unwrap()?;
+    let patch_name = lines.next().unwrap()?;
+    let sha256 = lines.next().unwrap()?;
+    if sha256 != "\n" {
+        let bytes = fs::read(args.original.clone()).unwrap();
+        let hash = sha256::digest(&bytes);
+        if hash != sha256 {
+            return Err(::msbt::Error::BadHash);
+        }
+        lines.next();
+    }
+
+    let arg_filename = args.original.clone();
+    let path = Path::new(&arg_filename);
+    let extension = path.extension().unwrap().to_str().unwrap().to_lowercase();
+    if extension == "msbt" {
+        let filename = path.file_stem().unwrap().to_str().unwrap();
+        let filepath = path.parent().unwrap();
+        let mut file = File::open(args.original)?;
+
+        let msbt = msbt::from_binary(&mut file)?;
+        let strings = msbt::get_strings(msbt.clone())?;
+        
+        let diff = convert_diff(lines).unwrap();
     }
     Ok(())
 }

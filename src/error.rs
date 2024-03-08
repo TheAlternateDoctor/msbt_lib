@@ -28,6 +28,14 @@ pub enum Error {
     #[error("Toml file is malformed!!")]
     MalformedToml(toml::de::Error),
 
+    /// Error called when the MSBT passed in argument doesn't match the one in the diff
+    #[error("The hashes of the MSBT file and the diff file don't match!")]
+    BadHash,
+
+    /// Error called when an error happens when reading a 
+    #[error("Unrecognized state for a string! States should be '+' (added), '-' (deleted) or '~' (edited)!")]
+    MalformedDiffUnrecognizedState,
+
 }
 
 impl From<std::io::Error> for Error {
