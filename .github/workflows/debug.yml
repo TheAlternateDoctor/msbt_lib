@@ -22,8 +22,8 @@ jobs:
       run: cargo test --verbose
     - uses: actions/upload-artifact@v1
       with:
-        name: msbdiff-linux
-        path: ${{runner.workspace}}/msbt_lib/target/debug/msbdiff
+        name: msbtool-linux
+        path: ${{runner.workspace}}/msbt_lib/target/debug/msbtool
   windows:
     name: Windows
     runs-on: windows-latest
@@ -36,8 +36,8 @@ jobs:
       run: cargo test --verbose
     - uses: actions/upload-artifact@v1
       with:
-        name: msbdiff-windows
-        path: ${{runner.workspace}}/msbt_lib/target/debug/msbdiff.exe
+        name: msbtool-windows
+        path: ${{runner.workspace}}/msbt_lib/target/debug/msbtool.exe
   macos:
     name: Mac
     runs-on: macos-latest
@@ -50,5 +50,5 @@ jobs:
       run: cargo test --verbose
     - uses: actions/upload-artifact@v1
       with:
-        name: msbdiff-mac
-        path: ${{runner.workspace}}/msbt_lib/target/debug/msbdiff
+        name: msbtool-mac
+        path: ${{runner.workspace}}/msbt_lib/target/debug/msbtool
