@@ -41,7 +41,8 @@ impl LBL1 {
         let label_defs = Self::get_offsets(buffer, order, block_amount)?;
         buffer.seek(SeekFrom::Start(start_block))?;
         let labels = Self::get_labels(buffer, order, label_defs.clone())?;
-        buffer.seek(SeekFrom::Start(block_start+0x10+section_size as u64+(0x10-(section_size%0x10)) as u64))?;
+        let leftover_padding = if section_size%0x10 != 0 {0x10-(section_size%0x10)} else {0};
+        buffer.seek(SeekFrom::Start(block_start+0x10+section_size as u64+(leftover_padding) as u64))?;
         println!("Extracted labels.");
         Ok(LBL1{
             _magic: magic,
