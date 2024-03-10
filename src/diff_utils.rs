@@ -62,7 +62,7 @@ pub fn get_edited(original: Vec<MSBTString>, vec_edited: Vec<Vec<MSBTString>>) -
 pub fn convert_diff(diff: Lines<BufReader<File>>) -> ::msbt::Result<Vec<StringDiff>> {
     let mut result = Vec::<StringDiff>::new();
     let mut current_diff = StringDiff { state: State::Null, label: "".to_owned(), string: "".to_owned() };
-    for line in diff.flatten() {
+    for line in diff.map_while(Result::ok) {
         if line.is_empty() {
             if current_diff.state != State::Null{
                 current_diff.string = current_diff.string.trim().to_owned();

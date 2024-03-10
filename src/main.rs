@@ -167,44 +167,47 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
     let deleted_strings = diff_utils::get_deleted(orig_strings.clone(), edited_strings.clone());
     let edited_strings = diff_utils::get_edited(orig_strings, edited_strings);
 
-    let output_path = if args.output.is_some(){args.output.unwrap()} else {filepath.join(filename.to_owned() + ".msbd.txt").into_os_string().into_string().unwrap()};
-    let mut diff_file = File::create(output_path)?;
 
-    //Writing file
-    let _ = diff_file.write((filename.to_owned()+"\n").as_bytes());
-    let _ = diff_file.write((filename.to_owned()+"\n").as_bytes());
-    if !hash.is_empty(){
-        let _ = diff_file.write((hash+"\n").as_bytes());
-    }
-    let _ = diff_file.write("\n".as_bytes());
-
-    //Writing added strings...
-    for string in added_strings{
-        let label = "+".to_owned()+&string.label+"\n";
-        let _ = diff_file.write(label.as_bytes());
-        let mut parsed_string = ::msbt::structs::TXT2::parse_binary(string.string, endianness);
-        parsed_string.truncate(parsed_string.len() - 1);
-        parsed_string = parsed_string.replace('\n', "\n>");
-        let _ = diff_file.write((">".to_owned()+&parsed_string+"\n").as_bytes());
+    if !added_strings.is_empty() || !deleted_strings.is_empty() || !edited_strings.is_empty(){
+        let output_path = if args.output.is_some(){args.output.unwrap()} else {filepath.join(filename.to_owned() + ".msbd.txt").into_os_string().into_string().unwrap()};
+        let mut diff_file = File::create(output_path)?;
+        
+        //Writing file
+        let _ = diff_file.write((filename.to_owned()+"\n").as_bytes());
+        let _ = diff_file.write((filename.to_owned()+"\n").as_bytes());
+        if !hash.is_empty(){
+            let _ = diff_file.write((hash+"\n").as_bytes());
+        }
         let _ = diff_file.write("\n".as_bytes());
-    }
 
-    //Writing deleted strings...
-    for string in deleted_strings{
-        let label = "-".to_owned()+&string.label+"\n";
-        let _ = diff_file.write(label.as_bytes());
-        let _ = diff_file.write("\n".as_bytes());
-    }
+        //Writing added strings...
+        for string in added_strings{
+            let label = "+".to_owned()+&string.label+"\n";
+            let _ = diff_file.write(label.as_bytes());
+            let mut parsed_string = ::msbt::structs::TXT2::parse_binary(string.string, endianness);
+            parsed_string.truncate(parsed_string.len() - 1);
+            parsed_string = parsed_string.replace('\n', "\n>");
+            let _ = diff_file.write((">".to_owned()+&parsed_string+"\n").as_bytes());
+            let _ = diff_file.write("\n".as_bytes());
+        }
 
-    //Writing edits...
-    for string in edited_strings{
-        let label = "~".to_owned()+&string.label+"\n";
-        let _ = diff_file.write(label.as_bytes());
-        let mut parsed_string = ::msbt::structs::TXT2::parse_binary(string.string, endianness);
-        parsed_string.truncate(parsed_string.len() - 1);
-        parsed_string = parsed_string.replace('\n', "\n>");
-        let _ = diff_file.write((">".to_owned()+&parsed_string+"\n").as_bytes());
-        let _ = diff_file.write("\n".as_bytes());
+        //Writing deleted strings...
+        for string in deleted_strings{
+            let label = "-".to_owned()+&string.label+"\n";
+            let _ = diff_file.write(label.as_bytes());
+            let _ = diff_file.write("\n".as_bytes());
+        }
+
+        //Writing edits...
+        for string in edited_strings{
+            let label = "~".to_owned()+&string.label+"\n";
+            let _ = diff_file.write(label.as_bytes());
+            let mut parsed_string = ::msbt::structs::TXT2::parse_binary(string.string, endianness);
+            parsed_string.truncate(parsed_string.len() - 1);
+            parsed_string = parsed_string.replace('\n', "\n>");
+            let _ = diff_file.write((">".to_owned()+&parsed_string+"\n").as_bytes());
+            let _ = diff_file.write("\n".as_bytes());
+        }
     }
     Ok(())
 }
