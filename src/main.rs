@@ -71,7 +71,9 @@ fn extract_msbt(args: Args) -> ::msbt::Result<()> {
         for string in strings {
             let mut parsed_string =
                 ::msbt::structs::TXT2::parse_binary(string.string, msbt.endianness);
-            parsed_string.truncate(parsed_string.len() - 1);
+            if parsed_string.ends_with('\0'){
+                parsed_string.truncate(parsed_string.len() - 1);
+            }
             output_map.insert(string.label, parsed_string);
         }
         let order = match msbt.endianness {
@@ -171,7 +173,7 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
     if !added_strings.is_empty() || !deleted_strings.is_empty() || !edited_strings.is_empty(){
         let output_path = if args.output.is_some(){args.output.unwrap()} else {filepath.join(filename.to_owned() + ".msbd.txt").into_os_string().into_string().unwrap()};
         let mut diff_file = File::create(output_path)?;
-        
+
         //Writing file
         let _ = diff_file.write((filename.to_owned()+"\n").as_bytes());
         let _ = diff_file.write((filename.to_owned()+"\n").as_bytes());
@@ -185,7 +187,9 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
             let label = "+".to_owned()+&string.label+"\n";
             let _ = diff_file.write(label.as_bytes());
             let mut parsed_string = ::msbt::structs::TXT2::parse_binary(string.string, endianness);
-            parsed_string.truncate(parsed_string.len() - 1);
+            if parsed_string.ends_with('\0'){
+                parsed_string.truncate(parsed_string.len() - 1);
+            }
             parsed_string = parsed_string.replace('\n', "\n>");
             let _ = diff_file.write((">".to_owned()+&parsed_string+"\n").as_bytes());
             let _ = diff_file.write("\n".as_bytes());
@@ -203,7 +207,9 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
             let label = "~".to_owned()+&string.label+"\n";
             let _ = diff_file.write(label.as_bytes());
             let mut parsed_string = ::msbt::structs::TXT2::parse_binary(string.string, endianness);
-            parsed_string.truncate(parsed_string.len() - 1);
+            if parsed_string.ends_with('\0'){
+                parsed_string.truncate(parsed_string.len() - 1);
+            }
             parsed_string = parsed_string.replace('\n', "\n>");
             let _ = diff_file.write((">".to_owned()+&parsed_string+"\n").as_bytes());
             let _ = diff_file.write("\n".as_bytes());
