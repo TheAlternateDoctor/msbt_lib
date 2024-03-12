@@ -224,7 +224,7 @@ fn patch_msbt(args: Args) -> ::msbt::Result<()> {
     let _final_filename = lines.next().unwrap()?;
     let patch_name = lines.next().unwrap()?;
     let sha256 = lines.next().unwrap()?;
-    if sha256 != "\n" {
+    if sha256 != "" {
         let bytes = fs::read(args.original.clone()).unwrap();
         let hash = sha256::digest(bytes);
         if hash != sha256 {
