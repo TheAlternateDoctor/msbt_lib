@@ -105,9 +105,13 @@ pub fn edit_string_by_label(msbt_strings: &mut [MSBTString],label: String, strin
         ByteOrder::BigEndian => string.encode_utf16().flat_map(|c| c.to_be_bytes()).collect(),
         ByteOrder::LittleEndian => string.encode_utf16().flat_map(|c| c.to_le_bytes()).collect(),
     };
-    let vec_index = msbt_strings.iter().position(|s| s.label == label).unwrap();
-    let old_index = msbt_strings.get(vec_index).unwrap().index;
-    msbt_strings[vec_index] = MSBTString{ index: old_index, label, string:new_string };
+    match msbt_strings.iter().position(|s| s.label == label){
+        Some(index) => {
+            let old_index = msbt_strings.get(index).unwrap().index;
+            msbt_strings[index] = MSBTString{ index: old_index, label, string:new_string };
+        },
+        None => println!("No label named \"{}\" found!", label),
+    };
 }
 
 
