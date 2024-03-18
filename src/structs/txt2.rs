@@ -4,6 +4,7 @@ use bytestream::{ByteOrder, StreamReader};
 use regex::Regex;
 use crate::error::{Error, Result};
 use crate::msbt::MSBTString;
+use crate::control_codes::{convert_control_code, convert_control_code_binary, convert_control_code_close, convert_control_code_close_binary};
 
 #[derive(Debug, Clone)]
 pub struct TXT2{
@@ -13,15 +14,6 @@ pub struct TXT2{
     pub offsets: Vec<u32>,
     pub strings: Vec<Vec<u8>>
 }
-
-#[derive(Debug)]
-struct ControlCode{
-    tag_group: u16,
-    tag_type: u16,
-    params_size: u16,
-    params: Vec<u8>
-}
-
 
 const ESCAPE_CODES_3DS:[(&str, u16);23] = [
     ("A_button_3DS", 0xE000),
@@ -398,67 +390,14 @@ impl TXT2{
     // Control code format: [CMD groupe.type raw_as_XX] i.e. \[RawCmd 0.3 E4_00_00_FF] for red colour
     pub fn parse_binary(string: Vec<u8>, order: bytestream::ByteOrder) -> String{
         let mut result = String::new();
-        let mut revert_string:Vec<u8> = string.into_iter().rev().collect();
+        let mut revert_string:VecDeque<u8> = string.into_iter().collect();
         while !revert_string.is_empty() {
-            let char_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
-            let char= Self::read_char(char_temp, order);
+            let char_temp = [revert_string.pop_front().unwrap(), revert_string.pop_front().unwrap()];
+            let char= read_char(char_temp, order);
             if char == 0x0E{ //Start of control code!
-                let mut control_code = ControlCode {tag_group:0,tag_type:0,params_size:0,params:Vec::<u8>::new()};
-
-                //Reading the group of the code
-                let byte_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
-                let byte = Self::read_char(byte_temp, order);
-                control_code.tag_group = byte;
-
-                //Reading the type of the code
-                let byte_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
-                let byte = Self::read_char(byte_temp, order);
-                control_code.tag_type = byte;
-
-                //Reading the amount of arguments
-                let byte_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
-                let byte = Self::read_char(byte_temp, order);
-                control_code.params_size = byte;
-
-                //Reading the arguments
-                for _i in 0..control_code.params_size {
-                    control_code.params.push(revert_string.pop().unwrap());
-                }
-                // Now we write the final string
-                let mut control_string = String::from("[RawCmd ");
-                control_string += &control_code.tag_group.to_string();
-                control_string += ".";
-                control_string += &control_code.tag_type.to_string();
-                if control_code.params_size > 0{
-                    control_string += " ";
-                    for code in control_code.params{
-                        control_string += &format!("{code:02X}");
-                        control_string += "_";
-                    }
-                    control_string.truncate(control_string.len()-1);
-                }
-                control_string += "]";
-                result.push_str(&control_string);
+                result.push_str(&convert_control_code_binary(&mut revert_string, order));
             } else if char == 0x0F{ // End of control code!
-                let mut control_code = ControlCode {tag_group:0,tag_type:0,params_size:0,params:Vec::<u8>::new()};
-
-                //Reading the group of the code
-                let byte_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
-                let byte = Self::read_char(byte_temp, order);
-                control_code.tag_group = byte;
-
-                //Reading the type of the code
-                let byte_temp = [revert_string.pop().unwrap(), revert_string.pop().unwrap()];
-                let byte = Self::read_char(byte_temp, order);
-                control_code.tag_type = byte;
-                
-                // Now we write the final string
-                let mut control_string = String::from("[/RawCmd ");
-                control_string += &control_code.tag_group.to_string();
-                control_string += ".";
-                control_string += &control_code.tag_type.to_string();
-                control_string += "]";
-                result.push_str(&control_string);
+                result.push_str(&convert_control_code_close_binary(&mut revert_string, order));
             } else {
                 result.push_str(&Self::search_escape_code(char));
             }
@@ -466,12 +405,6 @@ impl TXT2{
         result
     }
 
-    fn read_char(char_temp: [u8;2], order: bytestream::ByteOrder) -> u16{
-        match order {
-            ByteOrder::BigEndian => u16::from_be_bytes(char_temp),
-            ByteOrder::LittleEndian => u16::from_le_bytes(char_temp),
-        }
-    }
 
     fn search_escape_code(char: u16) -> String {
         if char >= 0xE000 {
@@ -538,108 +471,9 @@ impl TXT2{
         }
         let mut raw_bytes = Vec::<u8>::new();
         for char in code.chars(){
-            raw_bytes.append(&mut Self::convert_char(char, order));
+            raw_bytes.append(&mut convert_char(char, order));
         }
         raw_bytes
-    }
-
-    fn convert_control_code(code: &str, order: bytestream::ByteOrder) -> Vec<u8>{
-        let mut raw_bytes = Vec::<u8>::new();
-        let mut bare_code = code.to_string();
-        bare_code.remove(0);
-        bare_code.pop();
-        let bare_content = bare_code.split(' ').collect::<Vec<&str>>();
-        match bare_content[0] {
-            "RawCmd" =>{
-                let mut control_code = ControlCode{ 
-                    tag_group: 0, 
-                    tag_type: 0, 
-                    params_size: 0, 
-                    params: Vec::<u8>::new() 
-                };
-                let code_def = bare_content[1].split('.').collect::<Vec<&str>>();
-                control_code.tag_group = code_def[0].parse().unwrap();
-                control_code.tag_type = code_def[1].parse().unwrap();
-
-                if bare_content.len() > 2{
-                    control_code.params_size = ((bare_content[2].len()+1)/3) as u16;
-                    for byte in bare_content[2].split('_').collect::<Vec<&str>>() {
-                        control_code.params.push(u8::from_str_radix(byte, 16).unwrap());
-                    }
-                } else {
-                    control_code.params_size = 0u16;
-                }
-                raw_bytes.push(0x0E);
-                raw_bytes.push(0x00);
-                match order{
-                    ByteOrder::BigEndian => {
-                        raw_bytes.append(&mut control_code.tag_group.to_be_bytes().to_vec());
-                        raw_bytes.append(&mut control_code.tag_type.to_be_bytes().to_vec());
-                        raw_bytes.append(&mut control_code.params_size.to_be_bytes().to_vec());
-                    },
-                    ByteOrder::LittleEndian => {
-                        raw_bytes.append(&mut control_code.tag_group.to_le_bytes().to_vec());
-                        raw_bytes.append(&mut control_code.tag_type.to_le_bytes().to_vec());
-                        raw_bytes.append(&mut control_code.params_size.to_le_bytes().to_vec());
-                    },
-                }
-                if control_code.params_size != 0{
-                    raw_bytes.append(&mut control_code.params);
-                }
-            }
-            _ => {
-                for char in code.chars(){
-                    raw_bytes.append(&mut Self::convert_char(char, order));
-                }
-            }
-        }
-        raw_bytes
-    }
-
-    fn convert_control_code_close(code: &str, order: bytestream::ByteOrder) -> Vec<u8>{
-        let mut raw_bytes = Vec::<u8>::new();
-        let mut bare_code = code.to_string();
-        bare_code.remove(0);
-        bare_code.remove(0);
-        bare_code.pop();
-        let bare_content = bare_code.split(' ').collect::<Vec<&str>>();
-        match bare_content[0]{
-            "RawCmd" => {
-                let code_def = bare_content[1].split('.').collect::<Vec<&str>>();
-                let tag_group: u16 = code_def[0].parse().unwrap();
-                let tag_type: u16 = code_def[1].parse().unwrap();
-
-                raw_bytes.push(0x0F);
-                raw_bytes.push(0x00);
-                match order{
-                    ByteOrder::BigEndian => {
-                        raw_bytes.append(&mut tag_group.to_be_bytes().to_vec());
-                        raw_bytes.append(&mut tag_type.to_be_bytes().to_vec());
-                    },
-                    ByteOrder::LittleEndian => {
-                        raw_bytes.append(&mut tag_group.to_le_bytes().to_vec());
-                        raw_bytes.append(&mut tag_type.to_le_bytes().to_vec());
-                    },
-                }
-            }
-            _=> {
-                for char in code.chars(){
-                    raw_bytes.append(&mut Self::convert_char(char, order));
-                }
-            }
-        }
-        raw_bytes
-    }
-
-    fn convert_char(char: char, order:bytestream::ByteOrder) -> Vec<u8> {
-        let mut result = Vec::<u8>::new();
-        let mut char_utf16 = [0; 1];
-        char.encode_utf16(&mut char_utf16);
-        match order{
-            ByteOrder::LittleEndian => result.append(&mut char_utf16.into_iter().flat_map(|c| c.to_le_bytes()).collect()),
-            ByteOrder::BigEndian => result.append(&mut char_utf16.into_iter().flat_map(|c| c.to_be_bytes()).collect()),
-        }
-        result
     }
 
     pub fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
@@ -650,13 +484,13 @@ impl TXT2{
         let control_close_regex = Regex::new(r"(\[\/[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}])").unwrap();
         let mut codes = Vec::<(usize, Vec<u8>)>::new();
         for code_match in control_regex.find_iter(string) {
-            codes.push((code_match.start(), Self::convert_control_code(code_match.as_str(), order)));
+            codes.push((code_match.start(), convert_control_code(code_match.as_str(), order)));
         }
         for code_match in escape_regex.find_iter(string) {
             codes.push((code_match.start(), Self::convert_escape_code(code_match.as_str(), order)));
         }
         for code_match in control_close_regex.find_iter(string) {
-            codes.push((code_match.start(), Self::convert_control_code_close(code_match.as_str(), order)));
+            codes.push((code_match.start(), convert_control_code_close(code_match.as_str(), order)));
         }
 
         codes.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -664,7 +498,7 @@ impl TXT2{
         let mut char_array: VecDeque<char> = VecDeque::from_iter(string.chars());
         for code in codes{
             for _i in pos..code.0{
-                result.append(&mut Self::convert_char(char_array.pop_front().unwrap(), order));
+                result.append(&mut convert_char(char_array.pop_front().unwrap(), order));
             }
             pos = code.0;
             result.append(&mut code.1.clone());
@@ -675,8 +509,26 @@ impl TXT2{
             }
         }
         for _i in 0..char_array.len(){
-            result.append(&mut Self::convert_char(char_array.pop_front().unwrap(), order));
+            result.append(&mut convert_char(char_array.pop_front().unwrap(), order));
         }
         Ok(result)
     }
+}
+
+pub fn read_char(char_temp: [u8;2], order: bytestream::ByteOrder) -> u16{
+    match order {
+        ByteOrder::BigEndian => u16::from_be_bytes(char_temp),
+        ByteOrder::LittleEndian => u16::from_le_bytes(char_temp),
+    }
+}
+
+pub fn convert_char(char: char, order:bytestream::ByteOrder) -> Vec<u8> {
+    let mut result = Vec::<u8>::new();
+    let mut char_utf16 = [0; 1];
+    char.encode_utf16(&mut char_utf16);
+    match order{
+        ByteOrder::LittleEndian => result.append(&mut char_utf16.into_iter().flat_map(|c| c.to_le_bytes()).collect()),
+        ByteOrder::BigEndian => result.append(&mut char_utf16.into_iter().flat_map(|c| c.to_be_bytes()).collect()),
+    }
+    result
 }
