@@ -79,6 +79,7 @@ pub fn convert_diff(diff: Lines<BufReader<File>>) -> ::msbt::Result<Vec<StringDi
                 }
                 chars.remove(0);
                 current_diff.label = chars.into_iter().collect();
+                println!("Found edit {}!", current_diff.label)
             } else {
                 let mut edited_line = line.clone();
                 edited_line.remove(0);
@@ -86,12 +87,15 @@ pub fn convert_diff(diff: Lines<BufReader<File>>) -> ::msbt::Result<Vec<StringDi
                 current_diff.string.push_str(&edited_line);
         }
     }
+    current_diff.string = current_diff.string.trim().to_owned();
+    result.push(current_diff.clone());
     Ok(result)
 }
 
 pub fn patch_diff(diff: Vec<StringDiff>, msbt: Vec<MSBTString>, order: bytestream::ByteOrder) -> ::msbt::Result<Vec<MSBTString>>{
     let mut new_msbt = msbt.clone();
     for string_diff in diff {
+        println!("Patching {}...", string_diff.label);
         let corrected_string = string_diff.string + "\0";
         match string_diff.state {
             State::Added => ::msbt::msbt::add_string(&mut new_msbt, string_diff.label, corrected_string, order),
