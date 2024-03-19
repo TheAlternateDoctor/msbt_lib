@@ -1,6 +1,6 @@
 # MSBTools
 
-[![Version 0.1](https://img.shields.io/badge/version-v0.1-red)](todo!)
+[![Version 0.1](https://img.shields.io/badge/version-v0.1-red)](https://github.com/TheAlternateDoctor/msbt_lib/releases/tag/v0.1)
 
 A crate that allows manipulating Nintendo's proprietary MSBT format, with a library crate to parse those files.
 
