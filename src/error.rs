@@ -4,7 +4,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Error, Debug)]
 pub enum Error {
-
     /// Error passed from std::io
     #[error("System error: {0}")]
     IOError(std::io::Error),
@@ -32,10 +31,9 @@ pub enum Error {
     #[error("The hashes of the MSBT file and the diff file don't match!")]
     BadHash,
 
-    /// Error called when an error happens when reading a 
+    /// Error called when an error happens when reading a
     #[error("Unrecognized state for a string! States should be '+' (added), '-' (deleted) or '~' (edited)!")]
     MalformedDiffUnrecognizedState,
-
 }
 
 impl From<std::io::Error> for Error {

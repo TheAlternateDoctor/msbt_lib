@@ -1,6 +1,6 @@
-pub mod structs;
+pub mod control_codes;
 pub mod error;
 pub mod msbt;
-pub mod control_codes;
+pub mod structs;
 
 pub use error::{Error, Result};
