@@ -480,7 +480,7 @@ impl TXT2{
         // println!("Parsing \"{}\"", string);
         let mut result = Vec::<u8>::new();
         let escape_regex = Regex::new(r"(\[![0-9a-zA-Z_]+\])").unwrap();
-        let control_regex = Regex::new(r"(\[[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}[ 0-9A-F_]*])").unwrap();
+        let control_regex = Regex::new(r"(\[[A-Za-z]+ ([0-9]{1,2}\.[0-9]{1,2})*[ 0-9A-F_#]*])").unwrap();
         let control_close_regex = Regex::new(r"(\[\/[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}])").unwrap();
         let mut codes = Vec::<(usize, Vec<u8>)>::new();
         for code_match in control_regex.find_iter(string) {
