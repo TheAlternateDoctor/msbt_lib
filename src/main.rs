@@ -28,6 +28,9 @@ struct Args {
     /// Files to use for diffing, or diff files to apply.
     edited: Vec<String>,
 }
+
+// ignore rustdoc warnings
+#[allow(rustdoc::all)]
 #[derive(ValueEnum, Clone, Debug)]
 enum Actions {
     /// Converts an MSBT to TOML.
