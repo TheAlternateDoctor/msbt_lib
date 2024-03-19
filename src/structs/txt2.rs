@@ -1,21 +1,24 @@
-use std::collections::VecDeque;
-use std::io::{Read, Seek, SeekFrom};
-use bytestream::{ByteOrder, StreamReader};
-use regex::Regex;
+use crate::control_codes::{
+    convert_control_code, convert_control_code_binary, convert_control_code_close,
+    convert_control_code_close_binary,
+};
 use crate::error::{Error, Result};
 use crate::msbt::MSBTString;
-use crate::control_codes::{convert_control_code, convert_control_code_binary, convert_control_code_close, convert_control_code_close_binary};
+use bytestream::{ByteOrder, StreamReader};
+use regex::Regex;
+use std::collections::VecDeque;
+use std::io::{Read, Seek, SeekFrom};
 
 #[derive(Debug, Clone)]
-pub struct TXT2{
-    _magic: Vec::<u8>,
+pub struct TXT2 {
+    _magic: Vec<u8>,
     _section_size: u32,
     _string_amount: u32,
     pub offsets: Vec<u32>,
-    pub strings: Vec<Vec<u8>>
+    pub strings: Vec<Vec<u8>>,
 }
 
-const ESCAPE_CODES_3DS:[(&str, u16);23] = [
+const ESCAPE_CODES_3DS: [(&str, u16); 23] = [
     ("A_button_3DS", 0xE000),
     ("B_button_3DS", 0xE001),
     ("X_button_3DS", 0xE002),
@@ -41,7 +44,7 @@ const ESCAPE_CODES_3DS:[(&str, u16);23] = [
     ("Video_3DS", 0xE076),
 ];
 
-const ESCAPE_CODES_WII:[(&str, u16);44] = [
+const ESCAPE_CODES_WII: [(&str, u16); 44] = [
     ("Power_Wii", 0xE040),
     ("D_pad_Wii", 0xE041),
     ("A_button_Wii", 0xE042),
@@ -88,7 +91,7 @@ const ESCAPE_CODES_WII:[(&str, u16);44] = [
     ("Question_mark_Wii", 0xE06B),
 ];
 
-const ESCAPE_CODES_SWITCH:[(&str, u16);120] = [
+const ESCAPE_CODES_SWITCH: [(&str, u16); 120] = [
     ("A_button_Switch", 0xE0A0),
     ("B_button_Switch", 0xE0A1),
     ("X_button_Switch", 0xE0A2),
@@ -116,7 +119,6 @@ const ESCAPE_CODES_SWITCH:[(&str, u16);120] = [
     ("Sleep_Switch", 0xE0B8),
     ("Home_Switch", 0xE0B9),
     ("Screenshot_Switch", 0xE0BA),
-
     ("Stick_Switch", 0xE0C0),
     ("Left_stick_Switch", 0xE0C1),
     ("Right_stick_Switch", 0xE0C2),
@@ -127,7 +129,6 @@ const ESCAPE_CODES_SWITCH:[(&str, u16);120] = [
     ("Rotate_counter_clockwise_right_Switch", 0xE0C7),
     ("Rotate_clockwise_left_Switch", 0xE0C8),
     ("Rotate_clockwise_right_Switch", 0xE0C9),
-
     ("D_pad_Switch", 0xE0D0),
     ("D_pad_up_Switch", 0xE0D1),
     ("D_pad_down_Switch", 0xE0D2),
@@ -135,7 +136,6 @@ const ESCAPE_CODES_SWITCH:[(&str, u16);120] = [
     ("D_pad_right_Switch", 0xE0D4),
     ("D_pad_up_down_Switch", 0xE0D5),
     ("D_pad_left_right_Switch", 0xE0D6),
-
     ("A_button_inverted_Switch", 0xE0E0),
     ("B_button_inverted_Switch", 0xE0E1),
     ("X_button_inverted_Switch", 0xE0E2),
@@ -158,14 +158,12 @@ const ESCAPE_CODES_SWITCH:[(&str, u16);120] = [
     ("Power_inverted_Switch", 0xE0F3),
     ("Home_inverted_Switch", 0xE0F4),
     ("Screenshot_inverted_Switch", 0xE0F5),
-
     ("Stick_inverted_Switch", 0xE100),
     ("Left_stick_inverted_Switch", 0xE101),
     ("Right_stick_inverted_Switch", 0xE102),
     ("Press_stick_inverted_Switch", 0xE103),
     ("Press_left_stick_inverted_Switch", 0xE104),
     ("Press_right_stick_inverted_Switch", 0xE105),
-
     ("D_pad_inverted_Switch", 0xE110),
     ("D_pad_up_inverted_Switch", 0xE111),
     ("D_pad_down_inverted_Switch", 0xE112),
@@ -173,7 +171,6 @@ const ESCAPE_CODES_SWITCH:[(&str, u16);120] = [
     ("D_pad_right_inverted_Switch", 0xE114),
     ("D_pad_up_down_inverted_Switch", 0xE115),
     ("D_pad_left_right_inverted_Switch", 0xE116),
-
     ("Handheld_controller_Switch", 0xE121),
     ("Both_joycons_controller_Switch", 0xE122),
     ("Left_joycon_controller_Switch", 0xE123),
@@ -186,7 +183,6 @@ const ESCAPE_CODES_SWITCH:[(&str, u16);120] = [
     ("Both_joycons_grip_controller_Switch", 0xE12A),
     ("No_joycons_grip_controller_Switch", 0xE12B),
     ("Pro_controller_Switch", 0xE12C),
-
     ("Brightness_Switch", 0xE130),
     ("Friends_Switch", 0xE131),
     ("News_Switch", 0xE132),
@@ -200,7 +196,6 @@ const ESCAPE_CODES_SWITCH:[(&str, u16);120] = [
     ("TV_Switch", 0xE13A),
     ("Headphone_Switch", 0xE13B),
     ("Sound_Switch", 0xE13C),
-    
     ("Warning_Switch", 0xE140),
     ("Error_Switch", 0xE141),
     ("Tip_Switch", 0xE142),
@@ -214,13 +209,12 @@ const ESCAPE_CODES_SWITCH:[(&str, u16);120] = [
     ("East_Switch", 0xE14A),
     ("Yes_Switch", 0xE14B),
     ("No_Switch", 0xE14C),
-    
     ("Warning_inverted_Switch", 0xE150),
     ("Error_inverted_Switch", 0xE151),
     ("Tip_inverted_Switch", 0xE152),
 ];
 
-const ESCAPE_CODES_DS:[(&str, u16);57] = [
+const ESCAPE_CODES_DS: [(&str, u16); 57] = [
     ("Clock_DS", 0xE007),
     ("Happy_face_DS", 0xE008),
     ("Angry_face_DS", 0xE009),
@@ -280,14 +274,14 @@ const ESCAPE_CODES_DS:[(&str, u16);57] = [
     ("Inverted_boxed_cross_big_DS", 0xE03F),
 ];
 
-impl TXT2{
+impl TXT2 {
     pub fn read_from<R: Read + Seek>(buffer: &mut R, order: bytestream::ByteOrder) -> Result<TXT2> {
         println!("Extracting strings...");
         let block_start = buffer.stream_position()?;
-        let mut magic = vec![0u8;4];
+        let mut magic = vec![0u8; 4];
         buffer.read_exact(&mut magic)?;
         if magic != b"TXT2" {
-            return Err(Error::MalformedFile)
+            return Err(Error::MalformedFile);
         }
         let section_size = u32::read_from(buffer, order)?;
         buffer.seek(SeekFrom::Current(8))?;
@@ -296,9 +290,9 @@ impl TXT2{
         for _i in 0..string_amount {
             offsets.push(u32::read_from(buffer, order)?);
         }
-        let strings = Self::get_strings(buffer, order, offsets.clone(), block_start+0x10)?;
+        let strings = Self::get_strings(buffer, order, offsets.clone(), block_start + 0x10)?;
         println!("Extracted strings.");
-        Ok(TXT2{
+        Ok(TXT2 {
             _magic: magic,
             _section_size: section_size,
             _string_amount: string_amount,
@@ -307,34 +301,42 @@ impl TXT2{
         })
     }
 
-    fn get_strings<R:Read + Seek>(buffer: &mut R, order: bytestream::ByteOrder, offsets: Vec<u32>, start_pos: u64) -> Result<Vec<Vec<u8>>> {
+    fn get_strings<R: Read + Seek>(
+        buffer: &mut R,
+        order: bytestream::ByteOrder,
+        offsets: Vec<u32>,
+        start_pos: u64,
+    ) -> Result<Vec<Vec<u8>>> {
         let mut strings = Vec::<Vec<u8>>::new();
         let mut start_offset = offsets[0];
-        for offset in offsets{
+        for offset in offsets {
             if offset != start_offset {
                 // println!("{:#x}:{:#x}", start_pos,offset);
-                buffer.seek(SeekFrom::Start(start_pos+start_offset as u64))?;
+                buffer.seek(SeekFrom::Start(start_pos + start_offset as u64))?;
                 let mut string = Vec::<u8>::new();
-                for _i in 0..(offset-start_offset){
+                for _i in 0..(offset - start_offset) {
                     string.push(u8::read_from(buffer, order)?);
                 }
                 strings.push(string);
                 start_offset = offset;
             }
         }
-        buffer.seek(SeekFrom::Start(start_pos+start_offset as u64))?;
+        buffer.seek(SeekFrom::Start(start_pos + start_offset as u64))?;
         let mut string = Vec::<u8>::new();
         buffer.read_to_end(&mut string)?;
         let mut padding = string.last().copied().unwrap();
         while padding != 0x00 {
-            string.truncate(string.len()-1);
+            string.truncate(string.len() - 1);
             padding = string.last().copied().unwrap();
         }
         strings.push(string);
         Ok(strings)
     }
 
-    pub fn write_binary(msbt_strings: Vec<MSBTString>, order: bytestream::ByteOrder) -> Result<Vec<u8>> {
+    pub fn write_binary(
+        msbt_strings: Vec<MSBTString>,
+        order: bytestream::ByteOrder,
+    ) -> Result<Vec<u8>> {
         println!("Formatting strings...");
         let mut result = Vec::<u8>::new();
         let mut offsets = Vec::<u32>::new();
@@ -342,44 +344,44 @@ impl TXT2{
         let mut new_strings = msbt_strings.clone();
         new_strings.sort_by(|a, b| a.index.cmp(&b.index));
         //First offset
-        let mut last_offset = msbt_strings.len() as u32*4+4;
+        let mut last_offset = msbt_strings.len() as u32 * 4 + 4;
         let mut section_size = 4_u32; //amount of strings
         offsets.push(last_offset);
-        for string in new_strings{
+        for string in new_strings {
             last_offset += string.string.len() as u32;
-            section_size += string.string.len() as u32+4;
+            section_size += string.string.len() as u32 + 4;
             strings.push(string.string);
             offsets.push(last_offset);
         }
-        offsets.truncate(offsets.len()-1);
+        offsets.truncate(offsets.len() - 1);
         //binary tiem
         result.append(&mut b"TXT2".to_vec());
         match order {
             ByteOrder::BigEndian => {
                 result.append(&mut section_size.to_be_bytes().to_vec());
-                result.append(&mut vec![0,0,0,0,0,0,0,0]);
+                result.append(&mut vec![0, 0, 0, 0, 0, 0, 0, 0]);
                 result.append(&mut (msbt_strings.len() as u32).to_be_bytes().to_vec());
-                for offset in offsets{
+                for offset in offsets {
                     result.append(&mut offset.to_be_bytes().to_vec());
                 }
-                for string in strings{
+                for string in strings {
                     result.append(&mut string.clone());
                 }
             }
             ByteOrder::LittleEndian => {
                 result.append(&mut section_size.to_le_bytes().to_vec());
-                result.append(&mut vec![0,0,0,0,0,0,0,0]);
+                result.append(&mut vec![0, 0, 0, 0, 0, 0, 0, 0]);
                 result.append(&mut (msbt_strings.len() as u32).to_le_bytes().to_vec());
-                for offset in offsets{
+                for offset in offsets {
                     result.append(&mut offset.to_le_bytes().to_vec());
                 }
-                for string in strings{
+                for string in strings {
                     result.append(&mut string.clone());
                 }
             }
         }
-        let padding = 16 - result.len() %16;
-        for _i in 0..padding{
+        let padding = 16 - result.len() % 16;
+        for _i in 0..padding {
             result.push(0xD0);
         }
 
@@ -388,16 +390,24 @@ impl TXT2{
     }
 
     // Control code format: [CMD groupe.type raw_as_XX] i.e. \[RawCmd 0.3 E4_00_00_FF] for red colour
-    pub fn parse_binary(string: Vec<u8>, order: bytestream::ByteOrder) -> String{
+    pub fn parse_binary(string: Vec<u8>, order: bytestream::ByteOrder) -> String {
         let mut result = String::new();
-        let mut revert_string:VecDeque<u8> = string.into_iter().collect();
+        let mut revert_string: VecDeque<u8> = string.into_iter().collect();
         while !revert_string.is_empty() {
-            let char_temp = [revert_string.pop_front().unwrap(), revert_string.pop_front().unwrap()];
-            let char= read_char(char_temp, order);
-            if char == 0x0E{ //Start of control code!
+            let char_temp = [
+                revert_string.pop_front().unwrap(),
+                revert_string.pop_front().unwrap(),
+            ];
+            let char = read_char(char_temp, order);
+            if char == 0x0E {
+                //Start of control code!
                 result.push_str(&convert_control_code_binary(&mut revert_string, order));
-            } else if char == 0x0F{ // End of control code!
-                result.push_str(&convert_control_code_close_binary(&mut revert_string, order));
+            } else if char == 0x0F {
+                // End of control code!
+                result.push_str(&convert_control_code_close_binary(
+                    &mut revert_string,
+                    order,
+                ));
             } else {
                 result.push_str(&Self::search_escape_code(char));
             }
@@ -405,24 +415,23 @@ impl TXT2{
         result
     }
 
-
     fn search_escape_code(char: u16) -> String {
         if char >= 0xE000 {
             let result = ESCAPE_CODES_3DS.into_iter().find(|&x| x.1 == char);
-            if result.is_some(){
-                return format!("[!{}]",result.unwrap().0);
+            if result.is_some() {
+                return format!("[!{}]", result.unwrap().0);
             }
             let result = ESCAPE_CODES_SWITCH.into_iter().find(|&x| x.1 == char);
-            if result.is_some(){
-                return format!("[!{}]",result.unwrap().0);
+            if result.is_some() {
+                return format!("[!{}]", result.unwrap().0);
             }
             let result = ESCAPE_CODES_WII.into_iter().find(|&x| x.1 == char);
-            if result.is_some(){
-                return format!("[!{}]",result.unwrap().0);
+            if result.is_some() {
+                return format!("[!{}]", result.unwrap().0);
             }
             let result = ESCAPE_CODES_DS.into_iter().find(|&x| x.1 == char);
-            if result.is_some(){
-                return format!("[!{}]",result.unwrap().0);
+            if result.is_some() {
+                return format!("[!{}]", result.unwrap().0);
             }
         }
         std::char::from_u32(char as u32).unwrap().to_string()
@@ -435,8 +444,8 @@ impl TXT2{
         bare_code.remove(0);
         if bare_code.contains("3DS") {
             let result = ESCAPE_CODES_3DS.into_iter().find(|&x| x.0 == bare_code);
-            if let Some(result) = result{
-                match order{
+            if let Some(result) = result {
+                match order {
                     ByteOrder::BigEndian => return result.1.to_be_bytes().to_vec(),
                     ByteOrder::LittleEndian => return result.1.to_le_bytes().to_vec(),
                 }
@@ -444,8 +453,8 @@ impl TXT2{
         }
         if bare_code.contains("Switch") {
             let result = ESCAPE_CODES_SWITCH.into_iter().find(|&x| x.0 == bare_code);
-            if let Some(result) = result{
-                match order{
+            if let Some(result) = result {
+                match order {
                     ByteOrder::BigEndian => return result.1.to_be_bytes().to_vec(),
                     ByteOrder::LittleEndian => return result.1.to_le_bytes().to_vec(),
                 }
@@ -453,8 +462,8 @@ impl TXT2{
         }
         if bare_code.contains("Wii") {
             let result = ESCAPE_CODES_WII.into_iter().find(|&x| x.0 == bare_code);
-            if let Some(result) = result{
-                match order{
+            if let Some(result) = result {
+                match order {
                     ByteOrder::BigEndian => return result.1.to_be_bytes().to_vec(),
                     ByteOrder::LittleEndian => return result.1.to_le_bytes().to_vec(),
                 }
@@ -462,42 +471,52 @@ impl TXT2{
         }
         if bare_code.contains("DS") {
             let result = ESCAPE_CODES_DS.into_iter().find(|&x| x.0 == bare_code);
-            if let Some(result) = result{
-                match order{
+            if let Some(result) = result {
+                match order {
                     ByteOrder::BigEndian => return result.1.to_be_bytes().to_vec(),
                     ByteOrder::LittleEndian => return result.1.to_le_bytes().to_vec(),
                 }
             }
         }
         let mut raw_bytes = Vec::<u8>::new();
-        for char in code.chars(){
+        for char in code.chars() {
             raw_bytes.append(&mut convert_char(char, order));
         }
         raw_bytes
     }
 
-    pub fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
+    pub fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>> {
         // println!("Parsing \"{}\"", string);
         let mut result = Vec::<u8>::new();
         let escape_regex = Regex::new(r"(\[![0-9a-zA-Z_]+\])").unwrap();
-        let control_regex = Regex::new(r"(\[[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}[ 0-9A-F.]*])").unwrap();
+        let control_regex =
+            Regex::new(r"(\[[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}[ 0-9A-F.]*])").unwrap();
         let control_close_regex = Regex::new(r"(\[\/[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}])").unwrap();
         let mut codes = Vec::<(usize, Vec<u8>)>::new();
         for code_match in control_regex.find_iter(string) {
-            codes.push((code_match.start(), convert_control_code(code_match.as_str(), order)));
+            codes.push((
+                code_match.start(),
+                convert_control_code(code_match.as_str(), order),
+            ));
         }
         for code_match in escape_regex.find_iter(string) {
-            codes.push((code_match.start(), Self::convert_escape_code(code_match.as_str(), order)));
+            codes.push((
+                code_match.start(),
+                Self::convert_escape_code(code_match.as_str(), order),
+            ));
         }
         for code_match in control_close_regex.find_iter(string) {
-            codes.push((code_match.start(), convert_control_code_close(code_match.as_str(), order)));
+            codes.push((
+                code_match.start(),
+                convert_control_code_close(code_match.as_str(), order),
+            ));
         }
 
         codes.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let mut pos = 0;
         let mut char_array: VecDeque<char> = VecDeque::from_iter(string.chars());
-        for code in codes{
-            for _i in pos..code.0{
+        for code in codes {
+            for _i in pos..code.0 {
                 result.append(&mut convert_char(char_array.pop_front().unwrap(), order));
             }
             pos = code.0;
@@ -505,30 +524,40 @@ impl TXT2{
             let mut char = '[';
             while char != ']' {
                 char = char_array.pop_front().unwrap();
-                pos+=1;
+                pos += 1;
             }
         }
-        for _i in 0..char_array.len(){
+        for _i in 0..char_array.len() {
             result.append(&mut convert_char(char_array.pop_front().unwrap(), order));
         }
         Ok(result)
     }
 }
 
-pub fn read_char(char_temp: [u8;2], order: bytestream::ByteOrder) -> u16{
+pub fn read_char(char_temp: [u8; 2], order: bytestream::ByteOrder) -> u16 {
     match order {
         ByteOrder::BigEndian => u16::from_be_bytes(char_temp),
         ByteOrder::LittleEndian => u16::from_le_bytes(char_temp),
     }
 }
 
-pub fn convert_char(char: char, order:bytestream::ByteOrder) -> Vec<u8> {
+pub fn convert_char(char: char, order: bytestream::ByteOrder) -> Vec<u8> {
     let mut result = Vec::<u8>::new();
     let mut char_utf16 = [0; 1];
     char.encode_utf16(&mut char_utf16);
-    match order{
-        ByteOrder::LittleEndian => result.append(&mut char_utf16.into_iter().flat_map(|c| c.to_le_bytes()).collect()),
-        ByteOrder::BigEndian => result.append(&mut char_utf16.into_iter().flat_map(|c| c.to_be_bytes()).collect()),
+    match order {
+        ByteOrder::LittleEndian => result.append(
+            &mut char_utf16
+                .into_iter()
+                .flat_map(|c| c.to_le_bytes())
+                .collect(),
+        ),
+        ByteOrder::BigEndian => result.append(
+            &mut char_utf16
+                .into_iter()
+                .flat_map(|c| c.to_be_bytes())
+                .collect(),
+        ),
     }
     result
 }

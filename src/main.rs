@@ -3,11 +3,12 @@ use std::fs::{self, File};
 use std::io::{self, BufRead, Read, Write};
 use std::path::Path;
 
-use diff_utils::convert_diff;
-use ::msbt::msbt::MSBTString;
 use clap::{Parser, ValueEnum};
-use msbt::msbt;
+use diff_utils::convert_diff;
 use serde::{Deserialize, Serialize};
+
+// FIXME: as a general rule, don't include imports with the same name as a crate
+use ::msbt::msbt::{self, MSBTString};
 
 mod diff_utils;
 
@@ -27,6 +28,9 @@ struct Args {
     /// Files to use for diffing, or diff files to apply.
     edited: Vec<String>,
 }
+
+// ignore rustdoc warnings
+#[allow(rustdoc::all)]
 #[derive(ValueEnum, Clone, Debug)]
 enum Actions {
     /// Converts an MSBT to TOML.
@@ -71,7 +75,7 @@ fn extract_msbt(args: Args) -> ::msbt::Result<()> {
         for string in strings {
             let mut parsed_string =
                 ::msbt::structs::TXT2::parse_binary(string.string, msbt.endianness);
-            if parsed_string.ends_with('\0'){
+            if parsed_string.ends_with('\0') {
                 parsed_string.truncate(parsed_string.len() - 1);
             }
             output_map.insert(string.label, parsed_string);
@@ -86,9 +90,16 @@ fn extract_msbt(args: Args) -> ::msbt::Result<()> {
             strings: output_map,
         };
         let serialized = toml::ser::to_string_pretty(&msbt_json).unwrap();
-        
-        
-        let output_path = if args.output.is_some(){args.output.unwrap()} else {filepath.join(filename.to_owned() + ".toml").into_os_string().into_string().unwrap()};
+
+        let output_path = if args.output.is_some() {
+            args.output.unwrap()
+        } else {
+            filepath
+                .join(filename.to_owned() + ".toml")
+                .into_os_string()
+                .into_string()
+                .unwrap()
+        };
         let mut result = File::create(output_path)?;
         result.write_all(serialized.as_bytes())?;
         Ok(())
@@ -106,12 +117,24 @@ fn create_msbt_args(args: Args) -> ::msbt::Result<()> {
     let toml = get_toml(file)?;
     let strings = get_strings_toml(&toml)?;
     let order = get_endianness_toml(&toml)?;
-    let output_path = if args.output.is_some(){args.output.unwrap()} else {filepath.join(filename.to_owned() + ".msbt").into_os_string().into_string().unwrap()};
-    let _ = create_msbt(output_path, strings, order);
+    let output_path = if args.output.is_some() {
+        args.output.unwrap()
+    } else {
+        filepath
+            .join(filename.to_owned() + ".msbt")
+            .into_os_string()
+            .into_string()
+            .unwrap()
+    };
+    create_msbt(output_path, strings, order)?;
     Ok(())
 }
 
-fn create_msbt(filename: String, msbt: Vec<MSBTString>, order: bytestream::ByteOrder) -> ::msbt::Result<()>{
+fn create_msbt(
+    filename: String,
+    msbt: Vec<MSBTString>,
+    order: bytestream::ByteOrder,
+) -> ::msbt::Result<()> {
     let new_msbt = msbt::to_binary(msbt, order)?;
     let mut result = File::create(filename)?;
     result.write_all(&new_msbt)?;
@@ -140,7 +163,8 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
         let msbt = msbt::from_binary(&mut file)?;
         endianness = msbt.endianness;
         orig_strings = msbt::get_strings(msbt.clone())?;
-    } else { //Just assume it's toml
+    } else {
+        //Just assume it's toml
         let file = File::open(args.original)?;
         let toml = get_toml(file)?;
         endianness = get_endianness_toml(&toml)?;
@@ -158,7 +182,8 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
             let mut file = File::open(path_edited)?;
             let msbt = msbt::from_binary(&mut file)?;
             msbt::get_strings(msbt.clone())?
-        } else { //Just assume it's toml
+        } else {
+            //Just assume it's toml
             let file = File::open(path_edited)?;
             let toml = get_toml(file)?;
             get_strings_toml(&toml)?
@@ -169,59 +194,67 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
     let deleted_strings = diff_utils::get_deleted(orig_strings.clone(), edited_strings.clone());
     let edited_strings = diff_utils::get_edited(orig_strings, edited_strings);
 
-
-    if !added_strings.is_empty() || !deleted_strings.is_empty() || !edited_strings.is_empty(){
-        let output_path = if args.output.is_some(){args.output.unwrap()} else {filepath.join(filename.to_owned() + ".msbd.txt").into_os_string().into_string().unwrap()};
+    if !added_strings.is_empty() || !deleted_strings.is_empty() || !edited_strings.is_empty() {
+        let output_path = if args.output.is_some() {
+            args.output.unwrap()
+        } else {
+            filepath
+                .join(filename.to_owned() + ".msbd.txt")
+                .into_os_string()
+                .into_string()
+                .unwrap()
+        };
         let mut diff_file = File::create(output_path)?;
 
         //Writing file
-        let _ = diff_file.write((filename.to_owned()+"\n").as_bytes());
-        let _ = diff_file.write((filename.to_owned()+"\n").as_bytes());
-        if !hash.is_empty(){
-            let _ = diff_file.write((hash+"\n").as_bytes());
+        diff_file.write_all((filename.to_owned() + "\n").as_bytes())?;
+        diff_file.write_all((filename.to_owned() + "\n").as_bytes())?;
+        if !hash.is_empty() {
+            diff_file.write_all((hash + "\n").as_bytes())?;
         }
-        let _ = diff_file.write("\n".as_bytes());
+        diff_file.write_all("\n".as_bytes())?;
 
         //Writing added strings...
-        for string in added_strings{
-            let label = "+".to_owned()+&string.label+"\n";
-            let _ = diff_file.write(label.as_bytes());
+        for string in added_strings {
+            let label = "+".to_owned() + &string.label + "\n";
+            diff_file.write_all(label.as_bytes())?;
             let mut parsed_string = ::msbt::structs::TXT2::parse_binary(string.string, endianness);
-            if parsed_string.ends_with('\0'){
+            if parsed_string.ends_with('\0') {
                 parsed_string.truncate(parsed_string.len() - 1);
             }
             parsed_string = parsed_string.replace('\n', "\n>");
-            let _ = diff_file.write((">".to_owned()+&parsed_string+"\n").as_bytes());
-            let _ = diff_file.write("\n".as_bytes());
+            diff_file.write_all((">".to_owned() + &parsed_string + "\n").as_bytes())?;
+            diff_file.write_all("\n".as_bytes())?;
         }
 
         //Writing deleted strings...
-        for string in deleted_strings{
-            let label = "-".to_owned()+&string.label+"\n";
-            let _ = diff_file.write(label.as_bytes());
-            let _ = diff_file.write("\n".as_bytes());
+        for string in deleted_strings {
+            let label = "-".to_owned() + &string.label + "\n";
+            diff_file.write_all(label.as_bytes())?;
+            diff_file.write_all("\n".as_bytes())?;
         }
 
         //Writing edits...
-        for string in edited_strings{
-            let label = "~".to_owned()+&string.label+"\n";
-            let _ = diff_file.write(label.as_bytes());
+        for string in edited_strings {
+            let label = "~".to_owned() + &string.label + "\n";
+            diff_file.write_all(label.as_bytes())?;
             let mut parsed_string = ::msbt::structs::TXT2::parse_binary(string.string, endianness);
-            if parsed_string.ends_with('\0'){
+            if parsed_string.ends_with('\0') {
                 parsed_string.truncate(parsed_string.len() - 1);
             }
             parsed_string = parsed_string.replace('\n', "\n>");
-            let _ = diff_file.write((">".to_owned()+&parsed_string+"\n").as_bytes());
-            let _ = diff_file.write("\n".as_bytes());
+            diff_file.write_all((">".to_owned() + &parsed_string + "\n").as_bytes())?;
+            diff_file.write_all("\n".as_bytes())?;
         }
     }
     Ok(())
 }
 
 fn patch_msbt(args: Args) -> ::msbt::Result<()> {
+    // BUG: only one patch
+    // BUG: panic when no patch files are given
     let diff_file = File::open(args.edited.first().unwrap())?;
     let mut lines = io::BufReader::new(diff_file).lines();
-    let _final_filename = lines.next().unwrap()?;
     let patch_name = lines.next().unwrap()?;
     let sha256 = lines.next().unwrap()?;
     if !sha256.is_empty() {
@@ -237,28 +270,36 @@ fn patch_msbt(args: Args) -> ::msbt::Result<()> {
     let path = Path::new(&arg_filename);
     let extension = path.extension().unwrap().to_str().unwrap().to_lowercase();
     if extension == "msbt" {
-        let _filename = path.file_stem().unwrap().to_str().unwrap();
         let filepath = path.parent().unwrap();
         let mut file = File::open(args.original)?;
 
         let msbt = msbt::from_binary(&mut file)?;
         let strings = msbt::get_strings(msbt.clone())?;
-        
+
         let diff = convert_diff(lines).unwrap();
         let new_msbt = diff_utils::patch_diff(diff, strings, msbt.endianness)?;
 
-        let output_path = if args.output.is_some(){args.output.unwrap()} else {filepath.join(patch_name.to_owned() + ".msbt").into_os_string().into_string().unwrap()};
-        match create_msbt(output_path, new_msbt, msbt.endianness){
-            Ok(_) => {},
+        let output_path = if args.output.is_some() {
+            args.output.unwrap()
+        } else {
+            filepath
+                .join(patch_name.to_owned() + ".msbt")
+                .into_os_string()
+                .into_string()
+                .unwrap()
+        };
+        match create_msbt(output_path, new_msbt, msbt.endianness) {
+            Ok(_) => {}
+            // FIXME: make this an error, not a panic
             Err(_) => panic!("Error writing MSBT file."),
         };
     }
     Ok(())
 }
 
-fn get_toml(mut file: File) -> ::msbt::Result<SerMsbt>{
+fn get_toml(mut file: File) -> ::msbt::Result<SerMsbt> {
     let mut toml_string = "".to_owned();
-    let _ = file.read_to_string(&mut toml_string);
+    file.read_to_string(&mut toml_string)?;
     Ok(toml::de::from_str(toml_string.as_str())?)
 }
 
@@ -269,7 +310,7 @@ fn get_endianness_toml(toml: &SerMsbt) -> ::msbt::Result<bytestream::ByteOrder> 
     }
 }
 
-fn get_strings_toml(toml: &SerMsbt) -> ::msbt::Result<Vec<MSBTString>>{
+fn get_strings_toml(toml: &SerMsbt) -> ::msbt::Result<Vec<MSBTString>> {
     let mut strings = Vec::<MSBTString>::new();
     let order = match toml.is_big_endian {
         true => bytestream::ByteOrder::BigEndian,
