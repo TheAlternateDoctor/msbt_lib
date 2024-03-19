@@ -3,11 +3,12 @@ use std::fs::{self, File};
 use std::io::{self, BufRead, Read, Write};
 use std::path::Path;
 
-use ::msbt::msbt::MSBTString;
 use clap::{Parser, ValueEnum};
 use diff_utils::convert_diff;
-use msbt::msbt;
 use serde::{Deserialize, Serialize};
+
+// FIXME: as a general rule, don't include imports with the same name as a crate
+use ::msbt::msbt::{self, MSBTString};
 
 mod diff_utils;
 
@@ -248,7 +249,7 @@ fn diff_msbt(args: Args) -> ::msbt::Result<()> {
 
 fn patch_msbt(args: Args) -> ::msbt::Result<()> {
     // BUG: only one patch
-    // PANIC: when no patch files are given
+    // BUG: panic when no patch files are given
     let diff_file = File::open(args.edited.first().unwrap())?;
     let mut lines = io::BufReader::new(diff_file).lines();
     let patch_name = lines.next().unwrap()?;
@@ -286,6 +287,7 @@ fn patch_msbt(args: Args) -> ::msbt::Result<()> {
         };
         match create_msbt(output_path, new_msbt, msbt.endianness) {
             Ok(_) => {}
+            // FIXME: make this an error, not a panic
             Err(_) => panic!("Error writing MSBT file."),
         };
     }
