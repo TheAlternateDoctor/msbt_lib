@@ -69,10 +69,7 @@ pub fn add_string_raw(msbt_strings: &mut Vec<MSBTString>, label: String, string:
 
 pub fn add_string(msbt_strings: &mut Vec<MSBTString>, label: String, string: String, order: bytestream::ByteOrder) {
     let last = msbt_strings.iter().map(|c| c.index).max().unwrap();
-    let new_string: Vec<u8> = match order {
-        ByteOrder::BigEndian => string.encode_utf16().flat_map(|c| c.to_be_bytes()).collect(),
-        ByteOrder::LittleEndian => string.encode_utf16().flat_map(|c| c.to_le_bytes()).collect(),
-    };
+    let new_string = TXT2::parse_string(&string, order).unwrap();
     let new_msbt_string = MSBTString{
         index: last+1,
         label,

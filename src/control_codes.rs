@@ -35,11 +35,11 @@ pub fn convert_control_code_binary(string: &mut VecDeque<u8>, order: bytestream:
     for _i in 0..control_code.params_size {
         control_code.params.push(string.pop_front().unwrap());
     }
+    // Now we write the final string
     match control_code.tag_group {
         0 => write_global(control_code),
         _ => write_raw_code(control_code)
     }
-    // Now we write the final string
 }
 
 pub fn convert_control_code_close_binary(string: &mut VecDeque<u8>, order: bytestream::ByteOrder) -> String {
