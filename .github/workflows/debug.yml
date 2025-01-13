@@ -20,7 +20,7 @@ jobs:
       run: cargo build --verbose 
     - name: Run tests
       run: cargo test --verbose
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v4
       with:
         name: msbtool-linux
         path: ${{runner.workspace}}/msbt_lib/target/debug/msbtool
@@ -34,7 +34,7 @@ jobs:
       run: cargo build --verbose 
     - name: Run tests
       run: cargo test --verbose
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v4
       with:
         name: msbtool-windows
         path: ${{runner.workspace}}/msbt_lib/target/debug/msbtool.exe
@@ -48,7 +48,7 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
-    - uses: actions/upload-artifact@v1
+    - uses: actions/upload-artifact@v4
       with:
         name: msbtool-mac
         path: ${{runner.workspace}}/msbt_lib/target/debug/msbtool
