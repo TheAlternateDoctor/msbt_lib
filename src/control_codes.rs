@@ -162,7 +162,6 @@ fn write_size_code(code: ControlCode) -> String {
         for code in code.params{
             control_string += &format!("{code:02X}");
         }
-        control_string.truncate(control_string.len()-1);
     control_string += "]";
     control_string
 }
@@ -172,7 +171,6 @@ fn write_colour_code(code: ControlCode) -> String {
         for code in code.params{
             control_string += &format!("{code:02X}");
         }
-        control_string.truncate(control_string.len()-1);
     control_string += "]";
     control_string
 }
@@ -231,7 +229,7 @@ fn convert_colour_code(args: &str, order: bytestream::ByteOrder) -> Vec<u8>{
     };
 
         for _i in 0..bare_args.len()/2{
-            let arg:String = args.chars().skip(control_code.params.len()*2).take(2).collect();
+            let arg:String = bare_args.chars().skip(control_code.params.len()*2).take(2).collect();
             control_code.params.push(u8::from_str_radix(&arg, 16).unwrap())
         }
 
