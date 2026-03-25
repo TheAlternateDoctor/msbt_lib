@@ -1,9 +1,9 @@
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, SeekFrom};
 
-use bytestream::ByteOrder;
+use bytestream::{ByteOrder, StreamReader};
 
 use crate::structs::{Header, ATR1, LBL1, TXT2};
-use crate::error::Result;
+use crate::{error::{Result}};
 
 
 #[derive(Clone)]
@@ -13,7 +13,8 @@ pub struct MSBT{
     _atr1: ATR1,
     txt2: TXT2,
     pub endianness: bytestream::ByteOrder,
-    pub has_attributes: bool
+    pub has_attributes: bool,
+    pub has_extra_sections: bool
 }
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -24,24 +25,65 @@ pub struct MSBTString {
 }
 
 pub fn from_binary<R: Read+Seek>(buffer: &mut R) -> Result<MSBT> {
+    let mut extra_sections = 0;
+    let mut lbl1: Option<LBL1> = None;
+    let mut atr1_option: Option<ATR1> = None;
+    let mut txt2: Option<TXT2> = None;
     let header = Header::read_from(buffer)?;
+    buffer.seek(SeekFrom::Current(10))?; // Moving out of Header padding
     let byte_order = if header.endianness {ByteOrder::BigEndian} else {ByteOrder::LittleEndian};
-    let lbl1 = LBL1::read_from(buffer, byte_order)?;
-    let atr1 = ATR1::read_from(buffer, byte_order)?;
+    while buffer.seek(SeekFrom::Current(0))? < header.filesize.into() {
+        let mut magic_bytes = vec![0u8;4];
+        buffer.read_exact(&mut magic_bytes)?;
+        buffer.seek(SeekFrom::Current(-4))?;
+        let magic = match str::from_utf8(&magic_bytes){
+            Ok(v) => v,
+            Err(_e) => panic!("Invalid Magic!")
+        };
+        println!("Reached Magic {}", magic);
+        if magic == "LBL1" {
+            lbl1 = Some(LBL1::read_from(buffer, byte_order)?);
+        } else if magic == "TXT2" {
+            txt2 = Some(TXT2::read_from(buffer, byte_order)?);
+        } else if magic == "ATR1" {
+            atr1_option = Some(ATR1::read_from(buffer, byte_order)?);
+        } else {
+            extra_sections += 1;
+            seek_to_next_section(buffer, byte_order)?;
+        }
+    }
+    let atr1;
+    if atr1_option.is_none() {
+        atr1 = ATR1::init_empty();
+    } else {
+        atr1 = atr1_option.unwrap();
+    }
     let mut has_attributes = true;
     if atr1.section_size == 0 {
         has_attributes = false;
     }
-    let txt2 = TXT2::read_from(buffer, byte_order)?;
     Ok(MSBT { 
         _header: header,
-        lbl1,
+        lbl1 : lbl1.unwrap(),
         _atr1: atr1,
-        txt2,
+        txt2 : txt2.unwrap(),
         endianness: byte_order,
-        has_attributes
+        has_attributes : has_attributes,
+        has_extra_sections: extra_sections > 0
         }
     )
+}
+
+pub fn seek_to_next_section<R: Read+Seek>(buffer: &mut R, order: bytestream::ByteOrder) -> Result<()>{
+    buffer.seek(SeekFrom::Current(4))?; // First we move out of the Magic
+    let section_size = u32::read_from(buffer, order)?;
+    buffer.seek(SeekFrom::Current(8))?; //Now we move out of the padding
+    buffer.seek(SeekFrom::Current(section_size.into()))?; //Now we move out of the section
+    let padding = 16 - section_size %16;
+    if padding != 16{
+        buffer.seek(SeekFrom::Current(padding.into()))?; //Now we move out of the padding at the end of the section
+    }
+    Ok(())
 }
 
 pub fn get_strings(msbt: MSBT) -> Result<Vec<MSBTString>> {

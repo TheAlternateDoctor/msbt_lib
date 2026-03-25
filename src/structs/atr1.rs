@@ -34,6 +34,10 @@ impl ATR1{
         })
     }
 
+    pub fn init_empty() -> ATR1{
+        return ATR1{ _magic: "NONE".as_bytes().to_vec(), section_size: 0, string_amount: 0 };
+    }
+
     pub fn write_binary(msbt_strings: Vec<MSBTString>, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
         println!("Formatting attributes...");
         let mut result = Vec::<u8>::new();

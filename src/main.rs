@@ -67,6 +67,9 @@ fn extract_msbt(args: Args) -> ::msbt::Result<()> {
 
         let mut output_map = HashMap::new();
         let msbt = msbt::from_binary(&mut file)?;
+        if msbt.has_extra_sections {
+            println!("Warning! MSBT has sections we do not know about. It is not recommended to rebuild the MSBT file.");
+        }
         let strings = msbt::get_strings(msbt.clone())?;
         for string in strings {
             let mut parsed_string =

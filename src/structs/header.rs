@@ -1,4 +1,4 @@
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek};
 use bytestream::{ByteOrder, StreamReader};
 use crate::error::{Error, Result};
 
@@ -11,7 +11,7 @@ pub struct Header{
     _version: u8, // Version? Always 03
     pub section_amount: u16,
     _unk3: u16,
-    _filesize: u32,
+    pub filesize: u32,
 }
 
 impl Header{
@@ -32,7 +32,6 @@ impl Header{
             endianness = bytestream::ByteOrder::LittleEndian;
             endianness_bool = false;
         }
-        buffer.seek(SeekFrom::Current(10))?;
         println!("Extracted header.");
         Ok(Header{
             _magic: magic,
@@ -42,7 +41,7 @@ impl Header{
             _version: u8::read_from(buffer, endianness)?,
             section_amount: u16::read_from(buffer, endianness)?,
             _unk3: u16::read_from(buffer, endianness)?,
-            _filesize: u32::read_from(buffer, endianness)?,
+            filesize: u32::read_from(buffer, endianness)?,
         })
     }
 
