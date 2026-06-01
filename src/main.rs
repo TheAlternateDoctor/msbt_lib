@@ -43,7 +43,13 @@ enum Actions {
 struct SerMsbt {
     is_big_endian: bool,
     has_attributes: bool,
-    strings: HashMap<String, String>,
+    string: HashMap<String, SerMsbtString>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct SerMsbtString {
+    pub text: String,
+    pub attribute: Vec<u8>
 }
 
 fn main() -> ::msbt::Result<()> {
@@ -71,13 +77,19 @@ fn extract_msbt(args: Args) -> ::msbt::Result<()> {
             println!("Warning! MSBT has sections we do not know about. It is not recommended to rebuild the MSBT file.");
         }
         let strings = msbt::get_strings(msbt.clone())?;
-        for string in strings {
+        for i in 0..strings.len() {
+            let complete_string = strings.get(i).unwrap().clone();
             let mut parsed_string =
-                ::msbt::structs::TXT2::parse_binary(string.string, msbt.endianness);
+                ::msbt::structs::TXT2::parse_binary(complete_string.string, msbt.endianness);
             if parsed_string.ends_with('\0'){
                 parsed_string.truncate(parsed_string.len() - 1);
             }
-            output_map.insert(string.label, parsed_string);
+            let mut parsed_attribute = Vec::<u8>::new();
+            if msbt.has_attributes{
+                parsed_attribute = complete_string.attribute;
+            }
+            output_map.insert(complete_string.label, SerMsbtString{text:parsed_string,attribute:parsed_attribute});
+            // output_map.insert(complete_string.label, SerMsbtString{text:parsed_string});
         }
         let order = match msbt.endianness {
             bytestream::ByteOrder::BigEndian => true,
@@ -86,7 +98,7 @@ fn extract_msbt(args: Args) -> ::msbt::Result<()> {
         let msbt_json = SerMsbt {
             is_big_endian: order,
             has_attributes: msbt.has_attributes,
-            strings: output_map,
+            string: output_map,
         };
         let serialized = toml::ser::to_string_pretty(&msbt_json).unwrap();
         
@@ -278,13 +290,18 @@ fn get_strings_toml(toml: &SerMsbt) -> ::msbt::Result<Vec<MSBTString>>{
         true => bytestream::ByteOrder::BigEndian,
         false => bytestream::ByteOrder::LittleEndian,
     };
-    println!("Parsing {} string(s)...", toml.strings.len());
-    for (i, (label, string)) in toml.strings.iter().enumerate() {
-        let corrected_string = string.to_owned() + "\0";
+    println!("Parsing {} string(s)...", toml.string.len());
+    for (i, (label, string)) in toml.string.iter().enumerate() {
+        let corrected_string = string.text.to_owned() + "\0";
+        let proper_attribute = Vec::<u8>::new();
+        // if string.attribute{
+        //     proper_attribute = string.attribute.clone();
+        // }
         strings.push(MSBTString {
             index: i as u32,
             label: label.to_string(),
             string: ::msbt::structs::TXT2::parse_string(&corrected_string, order).unwrap(),
+            attribute: proper_attribute
         });
     }
     println!("Parsed {} string(s).", strings.len());

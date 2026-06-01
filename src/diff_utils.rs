@@ -1,5 +1,7 @@
 use std::{fs::File, io::{BufReader, Lines}};
 
+use msbt::msbt::MSBTStringSimplified;
+
 use crate::msbt::MSBTString;
 
 #[derive(Debug, Clone)]
@@ -98,7 +100,7 @@ pub fn patch_diff(diff: Vec<StringDiff>, msbt: Vec<MSBTString>, order: bytestrea
         println!("Patching {}...", string_diff.label);
         let corrected_string = string_diff.string + "\0";
         match string_diff.state {
-            State::Added => ::msbt::msbt::add_string(&mut new_msbt, string_diff.label, corrected_string, order),
+            State::Added => ::msbt::msbt::add_string(&mut new_msbt, MSBTStringSimplified { label: string_diff.label, string: corrected_string, attribute: Vec::<u8>::new() }, order),
             State::Deleted => ::msbt::msbt::delete_string_by_label(&mut new_msbt, string_diff.label),
             State::Edited => ::msbt::msbt::edit_string_by_label(&mut new_msbt, string_diff.label, corrected_string, order),
             State::Null => {},

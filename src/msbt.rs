@@ -10,10 +10,11 @@ use crate::{error::{Result}};
 pub struct MSBT{
     _header: Header,
     lbl1: LBL1,
-    _atr1: ATR1,
+    atr1: ATR1,
     txt2: TXT2,
     pub endianness: bytestream::ByteOrder,
     pub has_attributes: bool,
+    // extra_sections: Vec<u8>,
     pub has_extra_sections: bool
 }
 
@@ -21,7 +22,14 @@ pub struct MSBT{
 pub struct MSBTString {
     pub index: u32,
     pub label: String,
-    pub string: Vec<u8>
+    pub string: Vec<u8>,
+    pub attribute:Vec<u8>,
+}
+
+pub struct MSBTStringSimplified{
+    pub label: String,
+    pub string: String,
+    pub attribute:Vec<u8>,
 }
 
 pub fn from_binary<R: Read+Seek>(buffer: &mut R) -> Result<MSBT> {
@@ -65,7 +73,7 @@ pub fn from_binary<R: Read+Seek>(buffer: &mut R) -> Result<MSBT> {
     Ok(MSBT { 
         _header: header,
         lbl1 : lbl1.unwrap(),
-        _atr1: atr1,
+        atr1,
         txt2 : txt2.unwrap(),
         endianness: byte_order,
         has_attributes : has_attributes,
@@ -89,33 +97,40 @@ pub fn seek_to_next_section<R: Read+Seek>(buffer: &mut R, order: bytestream::Byt
 pub fn get_strings(msbt: MSBT) -> Result<Vec<MSBTString>> {
     let mut msbt_strings = Vec::<MSBTString>::new();
     for label in msbt.lbl1.labels{
+        let mut attribute = Vec::<u8>::new();
+        if msbt.has_attributes {
+            attribute = msbt.atr1.attributes[(label.string_index) as usize].clone();
+        }
         let string = MSBTString{
             index: label.string_index,
             label: label.label,
             string: msbt.txt2.strings[(label.string_index) as usize].clone(),
+            attribute,
         };
         msbt_strings.push(string);
     }
     Ok(msbt_strings)
 }
 
-pub fn add_string_raw(msbt_strings: &mut Vec<MSBTString>, label: String, string: Vec<u8>) {
+pub fn add_string_raw(msbt_strings: &mut Vec<MSBTString>, label: String, string: Vec<u8>, attribute: Vec<u8>) {
     let last = msbt_strings.iter().map(|c| c.index).max().unwrap();
     let new_string = MSBTString{
         index: last+1,
         label,
-        string
+        string,
+        attribute
     };
     msbt_strings.push(new_string);
 }
 
-pub fn add_string(msbt_strings: &mut Vec<MSBTString>, label: String, string: String, order: bytestream::ByteOrder) {
+pub fn add_string(msbt_strings: &mut Vec<MSBTString>, string:MSBTStringSimplified, order: bytestream::ByteOrder) {
     let last = msbt_strings.iter().map(|c| c.index).max().unwrap();
-    let new_string = TXT2::parse_string(&string, order).unwrap();
+    let new_string = TXT2::parse_string(&string.string, order).unwrap();
     let new_msbt_string = MSBTString{
         index: last+1,
-        label,
-        string: new_string
+        label:string.label,
+        string: new_string,
+        attribute: string.attribute
     };
     msbt_strings.push(new_msbt_string);
 }
@@ -147,7 +162,7 @@ pub fn edit_string_by_label(msbt_strings: &mut [MSBTString],label: String, strin
     match msbt_strings.iter().position(|s| s.label == label){
         Some(index) => {
             let old_index = msbt_strings.get(index).unwrap().index;
-            msbt_strings[index] = MSBTString{ index: old_index, label, string:new_string };
+            msbt_strings[index] = MSBTString{ index: old_index, label, string:new_string, attribute: Vec::<u8>::new() };
         },
         None => println!("No label named \"{}\" found!", label),
     };

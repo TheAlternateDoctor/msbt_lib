@@ -8,7 +8,9 @@ use bytestream::{ByteOrder, StreamReader};
 pub struct ATR1{ // Not enough data, since only Rhythm Heaven Megamix has been used for research.
     _magic: Vec<u8>,
     pub section_size: u32,
-    pub string_amount:u64
+    _string_amount:u32,
+    pub attribute_size:u32,
+    pub attributes: Vec<Vec<u8>>
 }
 
 impl ATR1{
@@ -20,22 +22,33 @@ impl ATR1{
         if magic != b"ATR1" {
             buffer.seek(SeekFrom::Current(-4))?;
             println!("No ATR1 section, continuing...");
-            return Ok(ATR1{ _magic: "NONE".as_bytes().to_vec(), section_size: 0, string_amount: 0 });
+            return Ok(Self::init_empty());
         }
         let section_size = u32::read_from(buffer, order)?;
         buffer.seek(SeekFrom::Current(8))?;
-        let string_amount = u64::read_from(buffer, order)?;
+        let string_amount = u32::read_from(buffer, order)?;
+        let attribute_size = u32::read_from(buffer, order)?;
+        let mut attributes = Vec::<Vec<u8>>::new();
+        for _i in 0..string_amount {
+            let mut attribute = Vec::<u8>::new();
+            for _j in 0..attribute_size{
+                attribute.push(u8::read_from(buffer, order)?);
+            }
+            attributes.push(attribute);
+        }
         buffer.seek(SeekFrom::Start(block_start+0x10+section_size as u64+(0x10-(section_size%0x10)) as u64))?;
         println!("Extracted attributes.");
         Ok(ATR1 { 
             _magic: magic,
             section_size,
-            string_amount
+            _string_amount:string_amount,
+            attribute_size,
+            attributes
         })
     }
 
     pub fn init_empty() -> ATR1{
-        return ATR1{ _magic: "NONE".as_bytes().to_vec(), section_size: 0, string_amount: 0 };
+        return ATR1{ _magic: "NONE".as_bytes().to_vec(), section_size: 0, _string_amount: 0, attribute_size:0, attributes: Vec::new() };
     }
 
     pub fn write_binary(msbt_strings: Vec<MSBTString>, order: bytestream::ByteOrder) -> Result<Vec<u8>>{

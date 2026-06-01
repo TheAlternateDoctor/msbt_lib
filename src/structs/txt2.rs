@@ -477,36 +477,45 @@ impl TXT2{
     }
 
     pub fn parse_string(string: &str, order: bytestream::ByteOrder) -> Result<Vec<u8>>{
-        // println!("Parsing \"{}\"", string);
+        println!("Parsing \"{}\"", string);
+        if string.contains("the sword in each direction."){
+            println!("Problematic string!");
+        }
         let mut result = Vec::<u8>::new();
         let escape_regex = Regex::new(r"(\[![0-9a-zA-Z_]+\])").unwrap();
         let control_regex = Regex::new(r"(\[[A-Za-z]+ ([0-9]{1,2}\.[0-9]{1,2})*[ 0-9A-F_#]*])").unwrap();
         let control_close_regex = Regex::new(r"(\[\/[A-Za-z]+ [0-9]{1,2}\.[0-9]{1,2}])").unwrap();
-        let mut codes = Vec::<(usize, Vec<u8>)>::new();
+        let mut codes = Vec::<(usize, usize, Vec<u8>)>::new();
         for code_match in control_regex.find_iter(string) {
-            codes.push((code_match.start(), convert_control_code(code_match.as_str(), order)));
+            codes.push((code_match.start(), code_match.end(), convert_control_code(code_match.as_str(), order)));
         }
         for code_match in escape_regex.find_iter(string) {
-            codes.push((code_match.start(), Self::convert_escape_code(code_match.as_str(), order)));
+            codes.push((code_match.start(), code_match.end(), Self::convert_escape_code(code_match.as_str(), order)));
         }
         for code_match in control_close_regex.find_iter(string) {
-            codes.push((code_match.start(), convert_control_code_close(code_match.as_str(), order)));
+            codes.push((code_match.start(), code_match.end(), convert_control_code_close(code_match.as_str(), order)));
         }
 
         codes.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let mut pos = 0;
+        let mut final_string = string;
         let mut char_array: VecDeque<char> = VecDeque::from_iter(string.chars());
         for code in codes{
-            for _i in pos..code.0{
-                result.append(&mut convert_char(char_array.pop_front().unwrap(), order));
-            }
-            pos = code.0;
-            result.append(&mut code.1.clone());
-            let mut char = '[';
-            while char != ']' {
-                char = char_array.pop_front().unwrap();
-                pos+=1;
-            }
+            let start_string = &final_string[0..code.0];
+            let end_string = &final_string[code.1..final_string.len()];
+
+            // for _i in pos..code.0{
+            //     result.append(&mut convert_char(char_array.pop_front().unwrap(), order));
+            // }
+            // pos = code.0;
+            // result.append(&mut code.1.clone());
+            // let mut char = '[';
+            // print!("\nStarted processing: ");
+            // while char != ']' {
+            //     char = char_array.pop_front().unwrap();
+            //     print!("{}",char);
+            //     pos+=1;
+            // }
         }
         for _i in 0..char_array.len(){
             result.append(&mut convert_char(char_array.pop_front().unwrap(), order));
